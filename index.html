@@ -459,7 +459,6 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
       <svg width="11" height="11" viewBox="0 0 23 23" fill="none"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
       Se connecter
     </button>
-    <button id="od-btn-load" onclick="odLoad()" style="display:none;padding:5px 12px;background:var(--surface);color:var(--brand);border:1px solid var(--brand);border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer">↓ Charger</button>
     <button id="od-btn-push" onclick="odPush()" style="display:none;padding:5px 12px;background:var(--brand);color:#fff;border:none;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer">↑ Synchroniser</button>
     <button id="od-btn-logout" onclick="odLogout()" style="display:none;padding:5px 10px;background:none;color:var(--text3);border:1px solid var(--border2);border-radius:6px;font-size:11px;cursor:pointer">Déconnexion</button>
     <div style="width:1px;height:18px;background:var(--border2)"></div>
@@ -1796,6 +1795,7 @@ function odInit() {
       var accounts = msalApp.getAllAccounts();
       if (accounts.length > 0) {
         odAccount = accounts[0];
+        odSetStatus('Reconnexion automatique…', false);
         msalApp.acquireTokenSilent({
           scopes: ['Files.ReadWrite', 'User.Read', 'Sites.ReadWrite.All'],
           account: odAccount
@@ -1803,7 +1803,7 @@ function odInit() {
           odToken = r.accessToken;
           odSetConnected(odAccount.name || odAccount.username);
           odLoad();
-        }).catch(function() {});
+        }).catch(function() { odSetStatus('Session expirée — reconnectez-vous', true); });
       }
     }
   }).catch(function(e) { console.warn('MSAL init:', e); });
@@ -1831,7 +1831,6 @@ function odLogout() {
   odToken = null; odAccount = null;
   if (msalApp) msalApp.logoutPopup();
   document.getElementById('od-btn-connect').style.display = 'inline-flex';
-  document.getElementById('od-btn-load').style.display   = 'none';
   document.getElementById('od-btn-push').style.display   = 'none';
   document.getElementById('od-btn-logout').style.display = 'none';
   document.getElementById('od-status').textContent = 'Déconnecté';
@@ -1840,7 +1839,6 @@ function odLogout() {
 function odSetConnected(name) {
   document.getElementById('od-status').textContent = '✓ Connecté : ' + name;
   document.getElementById('od-btn-connect').style.display = 'none';
-  document.getElementById('od-btn-load').style.display    = 'inline-block';
   document.getElementById('od-btn-push').style.display    = 'inline-block';
   document.getElementById('od-btn-logout').style.display  = 'inline-block';
 }
@@ -1954,6 +1952,14 @@ function odPush() {
 }
 
 function syncData() { odPush(); }
+
+function odAutoSync() {
+  if (!odToken) return;
+  if (window._odAutoSyncTimer) clearTimeout(window._odAutoSyncTimer);
+  window._odAutoSyncTimer = setTimeout(function() {
+    odPush();
+  }, 1200);
+}
 
 
 // ======== RÉFÉRENTIEL MÉTIERS ========
@@ -3183,6 +3189,8 @@ function saveToHistory() {
   h.sort((a,b)=>(b.year+b.month).localeCompare(a.year+a.month));
   localStorage.setItem(STORAGE_KEY,JSON.stringify(h));
   alert('✓ Mois '+MONTHS_FR[parseInt(currentResults.month)-1]+' '+currentResults.year+' sauvegardé.');
+  // Sync automatique après sauvegarde
+  odAutoSync();
 }
 
 // Auto-init OneDrive au chargement
