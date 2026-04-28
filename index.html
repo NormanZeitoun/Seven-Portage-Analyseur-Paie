@@ -570,6 +570,10 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
           <div class="mapping-row"><span class="mapping-lbl">Nom</span><select id="map-swile-nom"></select></div>
           <div class="mapping-row"><span class="mapping-lbl">Prénom (si colonne séparée)</span><select id="map-swile-prenom"><option value="">— pas de colonne séparée —</option></select></div>
           <div class="mapping-row"><span class="mapping-lbl">Montant Swile</span><select id="map-swile-cout"></select></div>
+          <div class="mapping-row" style="margin-top:6px">
+            <span class="mapping-lbl" style="font-size:11px;color:var(--text3)">Multiplicateur (si nb tickets)</span>
+            <input type="number" id="swile-multiplier" value="1" min="0.01" step="0.01" style="width:70px;padding:4px 8px;font-size:12px;border:1px solid var(--border2);border-radius:var(--radius-xs)" title="Mettre 11 si la colonne contient le nombre de tickets à 11€">
+          </div>
         </div>
       </div>
 
@@ -1044,6 +1048,154 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
   </div>
 </div>
 
+
+<!-- ======== TAB TÂCHES ======== -->
+<div id="tab-taches" class="tab-pane">
+<style>
+.tk-board{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.tk-col{background:var(--surface2);border-radius:var(--radius);overflow:hidden}
+.tk-col-header{padding:12px 16px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between}
+.tk-col-a .tk-col-header{background:#FEF3C7;color:#92400E;border-bottom:2px solid #FCD34D}
+.tk-col-b .tk-col-header{background:#EFF6FF;color:#1E40AF;border-bottom:2px solid #BFDBFE}
+.tk-col-c .tk-col-header{background:#ECFDF5;color:#065F46;border-bottom:2px solid #6EE7B7}
+.tk-col-body{padding:8px;min-height:80px;display:flex;flex-direction:column;gap:6px}
+.tk-card{background:var(--surface);border:1px solid var(--border2);border-radius:9px;padding:11px 13px;cursor:pointer;transition:box-shadow .15s,transform .15s}
+.tk-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.tk-card-title{font-size:13px;font-weight:600;line-height:1.35;margin-bottom:4px}
+.tk-card-consultant{font-size:11.5px;color:var(--brand);font-weight:600;margin-bottom:4px}
+.tk-card-desc{font-size:11.5px;color:var(--text2);line-height:1.4;margin-bottom:6px}
+.tk-card-footer{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tk-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
+.tk-prio-haute{background:#FEE2E2;color:#991B1B}
+.tk-prio-normal{background:#EFF6FF;color:#1E40AF}
+.tk-prio-basse{background:#F0FDF4;color:#166534}
+.tk-assigned{font-size:11px;color:var(--text3)}
+.tk-date-late{color:var(--danger);font-weight:600}
+#tk-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#tk-modal-inner{background:var(--surface);border-radius:var(--radius);width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-md)}
+.tk-modal-header{background:linear-gradient(135deg,var(--brand),var(--brand2));padding:18px 22px;display:flex;justify-content:space-between;align-items:center}
+.tk-modal-header h3{color:#fff;font-size:15px;font-weight:700;margin:0}
+.tk-modal-body{padding:22px}
+.tk-form-row{margin-bottom:14px}
+.tk-form-label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px}
+.tk-form-input{width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text)}
+.tk-form-input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-glow)}
+.tk-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tk-staff-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.tk-staff-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;box-shadow:var(--shadow-xs);cursor:pointer;transition:box-shadow .15s}
+.tk-staff-card:hover{box-shadow:var(--shadow-md)}
+.tk-staff-name{font-size:13px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.tk-staff-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.tk-staff-stats{display:flex;gap:6px;flex-wrap:wrap}
+.tk-staff-stat{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600}
+.tk-staff-stat.open{background:var(--warn-bg);color:var(--warn)}
+.tk-staff-stat.done{background:var(--ok-bg);color:var(--ok)}
+.tk-staff-stat.urgent{background:var(--danger-bg);color:var(--danger)}
+</style>
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+  <div>
+    <div style="font-size:18px;font-weight:700">Gestionnaire de tâches</div>
+    <div style="font-size:12px;color:var(--text3);margin-top:2px" id="tk-subtitle"></div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <select id="tk-filter-assignee" onchange="tkRender()" style="padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:12px;background:var(--surface);color:var(--text)">
+      <option value="">Tous</option>
+      <option>Norman</option><option>David</option><option>Rayan</option>
+      <option>Esteban</option><option>Sacha</option><option>Farah</option><option>Joanne</option>
+    </select>
+    <select id="tk-filter-statut" onchange="tkRender()" style="padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:12px;background:var(--surface);color:var(--text)">
+      <option value="">Tous statuts</option>
+      <option value="a_faire">A faire</option>
+      <option value="en_cours">En cours</option>
+      <option value="fait">Fait</option>
+    </select>
+    <button onclick="tkNew()" class="btn btn-primary btn-sm">+ Nouvelle tache</button>
+  </div>
+</div>
+
+<div class="tk-board">
+  <div class="tk-col tk-col-a">
+    <div class="tk-col-header">A faire <span id="tk-count-a" style="font-weight:400;opacity:.7"></span></div>
+    <div class="tk-col-body" id="tk-col-a"></div>
+  </div>
+  <div class="tk-col tk-col-b">
+    <div class="tk-col-header">En cours <span id="tk-count-b" style="font-weight:400;opacity:.7"></span></div>
+    <div class="tk-col-body" id="tk-col-b"></div>
+  </div>
+  <div class="tk-col tk-col-c">
+    <div class="tk-col-header">Fait <span id="tk-count-c" style="font-weight:400;opacity:.7"></span></div>
+    <div class="tk-col-body" id="tk-col-c"></div>
+  </div>
+</div>
+
+<div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
+  <div style="font-size:14px;font-weight:700;margin-bottom:14px">Index commerciaux</div>
+  <div class="tk-staff-grid" id="tk-staff-grid"></div>
+</div>
+
+<div id="tk-modal">
+  <div id="tk-modal-inner">
+    <div class="tk-modal-header">
+      <h3 id="tk-modal-title">Nouvelle tache</h3>
+      <button onclick="tkCloseModal()" style="border:none;background:rgba(255,255,255,.2);color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px">x</button>
+    </div>
+    <div class="tk-modal-body">
+      <input type="hidden" id="tk-edit-id">
+      <div class="tk-form-row">
+        <label class="tk-form-label">Titre</label>
+        <input type="text" id="tk-title" class="tk-form-input" placeholder="Ex: Revoir le TJM">
+      </div>
+      <div class="tk-form-row">
+        <label class="tk-form-label">Consultant</label>
+        <input type="text" id="tk-consultant" class="tk-form-input" placeholder="Nom du consultant">
+      </div>
+      <div class="tk-form-row">
+        <label class="tk-form-label">Description</label>
+        <textarea id="tk-desc" class="tk-form-input" rows="3" placeholder="Details..." style="resize:vertical"></textarea>
+      </div>
+      <div class="tk-form-grid">
+        <div class="tk-form-row">
+          <label class="tk-form-label">Assigne a</label>
+          <select id="tk-assignee" class="tk-form-input">
+            <option value="">Non assigne</option>
+            <option>Norman</option><option>David</option><option>Rayan</option>
+            <option>Esteban</option><option>Sacha</option><option>Farah</option><option>Joanne</option>
+          </select>
+        </div>
+        <div class="tk-form-row">
+          <label class="tk-form-label">Priorite</label>
+          <select id="tk-prio" class="tk-form-input">
+            <option value="normal">Normale</option>
+            <option value="haute">Haute</option>
+            <option value="basse">Basse</option>
+          </select>
+        </div>
+        <div class="tk-form-row">
+          <label class="tk-form-label">Statut</label>
+          <select id="tk-statut" class="tk-form-input">
+            <option value="a_faire">A faire</option>
+            <option value="en_cours">En cours</option>
+            <option value="fait">Fait</option>
+          </select>
+        </div>
+        <div class="tk-form-row">
+          <label class="tk-form-label">Echeance</label>
+          <input type="date" id="tk-echeance" class="tk-form-input">
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+        <button id="tk-delete-btn" onclick="tkDelete()" class="btn btn-sm" style="background:var(--danger-bg);color:var(--danger);border:1px solid #FCA5A5;display:none">Supprimer</button>
+        <div style="display:flex;gap:8px;margin-left:auto">
+          <button onclick="tkCloseModal()" class="btn btn-secondary btn-sm">Annuler</button>
+          <button onclick="tkSave()" class="btn btn-primary btn-sm">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
 <!-- ======== TAB SUIVI ANNUEL ======== -->
 <div id="tab-suivi" class="tab-pane">
   <div id="suivi-empty" class="empty">
@@ -1447,6 +1599,7 @@ function switchTab(name, btn) {
   if(name==='financier') renderFinancier();
   if(name==='pilotage') buildDashboard();
   if(name==='axes') renderAxes();
+  if(name==='taches') { tkRender(); }
   if(name==='client') renderClient();
 }
 
@@ -1554,7 +1707,7 @@ function checkReady() {
     document.getElementById('swile-mapping-group').style.display = 'block';
     fillSel('map-swile-nom', fileData.swile.headers, ['nom']);
     fillSel('map-swile-prenom', fileData.swile.headers, ['prénom','prenom']);
-    fillSel('map-swile-cout', fileData.swile.headers, ['montant ','montant','solde','total','coût','ticket','swile']);
+    fillSel('map-swile-cout', fileData.swile.headers, ['montant ','montant','solde','total','coût','calcul','ticket','swile']);
   }
   if(fileData.avantages) {
     document.getElementById('avantages-mapping-group').style.display = 'block';
@@ -1589,6 +1742,7 @@ function updateImportTotaux() {
     });
   }
   const iSWC = getIdx('map-swile-cout'), iSWN = getIdx('map-swile-nom'), iSWP = getIdx('map-swile-prenom');
+  const swileMultiplier = parseFloat(document.getElementById('swile-multiplier')?.value || '1') || 1;
   if(iSWC >= 0 && fileData.swile) {
     fileData.swile.rows.forEach(r => {
       const nom = iSWN>=0 ? String(r[iSWN]||'').trim() : '';
@@ -1855,18 +2009,32 @@ function odSetStatus(msg, isError) {
 }
 
 function odWithToken(cb) {
-  if (odToken) { cb(odToken); return; }
-  if (!msalApp || !odAccount) { odSetStatus('Non connecté', true); return; }
+  if (!msalApp || !odAccount) { odSetStatus('Non connecte - cliquez Se connecter', true); return; }
   msalApp.acquireTokenSilent({
     scopes: ['Files.ReadWrite', 'User.Read', 'Sites.ReadWrite.All'],
-    account: odAccount
-  }).then(function(r) { odToken = r.accessToken; cb(odToken); })
-  .catch(function() { odSetStatus('Session expirée, reconnectez-vous', true); });
+    account: odAccount,
+    forceRefresh: false
+  }).then(function(r) {
+    odToken = r.accessToken;
+    cb(odToken);
+  }).catch(function() {
+    odToken = null;
+    msalApp.acquireTokenPopup({
+      scopes: ['Files.ReadWrite', 'User.Read', 'Sites.ReadWrite.All']
+    }).then(function(r) {
+      odToken = r.accessToken;
+      odAccount = r.account;
+      odSetConnected(r.account.name || r.account.username);
+      cb(odToken);
+    }).catch(function() {
+      odSetStatus('Session expiree - reconnexion annulee', true);
+    });
+  });
 }
 
 function odBuildData() {
   // Collecter toutes les clés localStorage à synchroniser
-  var KEYS = [STORAGE_KEY, 'ref_overrides_v1', 'seven_portage_corrections_v1', FIN_KEY];
+  var KEYS = [STORAGE_KEY, 'ref_overrides_v1', 'seven_portage_corrections_v1', FIN_KEY, TK_KEY];
   var allKeys = Object.keys(localStorage).filter(function(k) {
     return KEYS.indexOf(k) >= 0 || k.indexOf('suivi_cp_') === 0 || k.indexOf('suivi_comment_') === 0;
   });
@@ -1964,6 +2132,172 @@ function odAutoSync() {
   }, 1200);
 }
 
+
+// ======== TÂCHES ========
+const TK_KEY = 'seven_portage_taches_v1';
+const TK_STAFF = ['Norman','David','Rayan','Esteban','Sacha','Farah','Joanne'];
+
+function tkLoad() {
+  try { return JSON.parse(localStorage.getItem(TK_KEY)||'[]'); } catch(e) { return []; }
+}
+function tkSaveTasks(tasks) {
+  localStorage.setItem(TK_KEY, JSON.stringify(tasks));
+  tkUpdateBadge();
+  if(typeof odAutoSync === 'function') odAutoSync();
+}
+function tkUpdateBadge() {
+  const tasks = tkLoad();
+  const open = tasks.filter(t => t.statut !== 'fait').length;
+  const badge = document.getElementById('badge-taches');
+  if(badge) {
+    badge.style.display = open > 0 ? 'inline-flex' : 'none';
+    badge.textContent = open;
+    badge.className = 'tab-badge ' + (tasks.filter(t=>t.prio==='haute'&&t.statut!=='fait').length>0?'':'ok');
+  }
+}
+function tkNew(consultant, consultantDisplay) {
+  document.getElementById('tk-edit-id').value = '';
+  document.getElementById('tk-title').value = '';
+  document.getElementById('tk-consultant').value = consultantDisplay || consultant || '';
+  document.getElementById('tk-desc').value = '';
+  document.getElementById('tk-assignee').value = '';
+  document.getElementById('tk-prio').value = 'normal';
+  document.getElementById('tk-statut').value = 'a_faire';
+  document.getElementById('tk-echeance').value = '';
+  document.getElementById('tk-modal-title').textContent = 'Nouvelle tache';
+  document.getElementById('tk-delete-btn').style.display = 'none';
+  document.getElementById('tk-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('tk-title').focus(), 100);
+}
+function tacheNewFromSuivi(normNom, displayNom, e) {
+  e && e.stopPropagation();
+  tkNew(normNom, displayNom);
+}
+function tkEdit(id) {
+  const tasks = tkLoad();
+  const t = tasks.find(x => x.id === id);
+  if(!t) return;
+  document.getElementById('tk-edit-id').value = id;
+  document.getElementById('tk-title').value = t.title || '';
+  document.getElementById('tk-consultant').value = t.consultant || '';
+  document.getElementById('tk-desc').value = t.desc || '';
+  document.getElementById('tk-assignee').value = t.assignee || '';
+  document.getElementById('tk-prio').value = t.prio || 'normal';
+  document.getElementById('tk-statut').value = t.statut || 'a_faire';
+  document.getElementById('tk-echeance').value = t.echeance || '';
+  document.getElementById('tk-modal-title').textContent = 'Modifier la tache';
+  document.getElementById('tk-delete-btn').style.display = 'inline-flex';
+  document.getElementById('tk-modal').style.display = 'flex';
+}
+function tkSave() {
+  const title = document.getElementById('tk-title').value.trim();
+  if(!title) { document.getElementById('tk-title').focus(); return; }
+  const tasks = tkLoad();
+  const editId = document.getElementById('tk-edit-id').value;
+  const task = {
+    id: editId || 'tk_' + Date.now(),
+    title,
+    consultant: document.getElementById('tk-consultant').value.trim(),
+    desc:       document.getElementById('tk-desc').value.trim(),
+    assignee:   document.getElementById('tk-assignee').value,
+    prio:       document.getElementById('tk-prio').value,
+    statut:     document.getElementById('tk-statut').value,
+    echeance:   document.getElementById('tk-echeance').value,
+    created:    editId ? (tasks.find(t=>t.id===editId)||{}).created || new Date().toISOString() : new Date().toISOString(),
+    updated:    new Date().toISOString()
+  };
+  if(editId) {
+    const idx = tasks.findIndex(t => t.id === editId);
+    if(idx >= 0) tasks[idx] = task; else tasks.push(task);
+  } else {
+    tasks.unshift(task);
+  }
+  tkSaveTasks(tasks);
+  tkCloseModal();
+  tkRender();
+}
+function tkDelete() {
+  const id = document.getElementById('tk-edit-id').value;
+  if(!id || !confirm('Supprimer cette tache ?')) return;
+  const tasks = tkLoad().filter(t => t.id !== id);
+  tkSaveTasks(tasks);
+  tkCloseModal();
+  tkRender();
+}
+function tkCloseModal() {
+  document.getElementById('tk-modal').style.display = 'none';
+}
+function tkRender() {
+  const tasks = tkLoad();
+  const filterA = document.getElementById('tk-filter-assignee')?.value || '';
+  const filterS = document.getElementById('tk-filter-statut')?.value || '';
+  const filtered = tasks.filter(t =>
+    (!filterA || t.assignee === filterA) &&
+    (!filterS || t.statut === filterS)
+  );
+
+  const cols = { a_faire: [], en_cours: [], fait: [] };
+  filtered.forEach(t => { if(cols[t.statut]) cols[t.statut].push(t); });
+
+  const today = new Date().toISOString().slice(0,10);
+  function cardHTML(t) {
+    const isLate = t.echeance && t.echeance < today && t.statut !== 'fait';
+    const prioClass = t.prio === 'haute' ? 'tk-prio-haute' : t.prio === 'basse' ? 'tk-prio-basse' : 'tk-prio-normal';
+    const prioLabel = t.prio === 'haute' ? 'Haute' : t.prio === 'basse' ? 'Basse' : 'Normale';
+    return `<div class="tk-card" onclick="tkEdit('${t.id}')">
+      <div class="tk-card-title">${t.title}</div>
+      ${t.consultant ? `<div class="tk-card-consultant">👤 ${t.consultant}</div>` : ''}
+      ${t.desc ? `<div class="tk-card-desc">${t.desc.slice(0,80)}${t.desc.length>80?'…':''}</div>` : ''}
+      <div class="tk-card-footer">
+        <span class="tk-badge ${prioClass}">${prioLabel}</span>
+        ${t.assignee ? `<span class="tk-assigned">→ ${t.assignee}</span>` : ''}
+        ${t.echeance ? `<span class="tk-assigned ${isLate?'tk-date-late':''}" style="margin-left:auto">${isLate?'⚠ ':''}${t.echeance}</span>` : ''}
+      </div>
+    </div>`;
+  }
+
+  ['a_faire','en_cours','fait'].forEach((s,i) => {
+    const colId = ['a','b','c'][i];
+    const el = document.getElementById('tk-col-'+colId);
+    const cnt = document.getElementById('tk-count-'+colId);
+    if(!el) return;
+    el.innerHTML = cols[s].length ? cols[s].map(cardHTML).join('') : '<div class="tk-empty">Aucune tache</div>';
+    if(cnt) cnt.textContent = '(' + cols[s].length + ')';
+  });
+
+  // Sous-titre
+  const sub = document.getElementById('tk-subtitle');
+  if(sub) sub.textContent = tasks.length + ' tache' + (tasks.length>1?'s':'') + ' · ' + tasks.filter(t=>t.statut!=='fait').length + ' ouvertes';
+
+  // Index commerciaux
+  const grid = document.getElementById('tk-staff-grid');
+  if(grid) {
+    grid.innerHTML = TK_STAFF.map(name => {
+      const mine = tasks.filter(t => t.assignee === name);
+      const open = mine.filter(t => t.statut !== 'fait').length;
+      const done = mine.filter(t => t.statut === 'fait').length;
+      const urgent = mine.filter(t => t.prio === 'haute' && t.statut !== 'fait').length;
+      const initials = name.slice(0,2).toUpperCase();
+      return `<div class="tk-staff-card" onclick="document.getElementById('tk-filter-assignee').value='${name}';tkRender()">
+        <div class="tk-staff-name">
+          <div class="tk-staff-avatar">${initials}</div>
+          ${name}
+        </div>
+        <div class="tk-staff-stats">
+          ${open > 0 ? `<span class="tk-staff-stat open">${open} ouverte${open>1?'s':''}</span>` : ''}
+          ${urgent > 0 ? `<span class="tk-staff-stat urgent">${urgent} urgente${urgent>1?'s':''}</span>` : ''}
+          ${done > 0 ? `<span class="tk-staff-stat done">${done} faite${done>1?'s':''}</span>` : ''}
+          ${mine.length === 0 ? '<span style="font-size:11px;color:var(--text3)">Aucune tache</span>' : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+// Fermer modal en cliquant dehors
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('tk-modal');
+  if(modal && e.target === modal) tkCloseModal();
+});
 
 // ======== RÉFÉRENTIEL MÉTIERS ========
 const REF_ENTRIES_BASE = [{"pn":"consultant en cybersecruite","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"project manager digital","s":"IT","m":"Digital"},{"pn":"incident manager","s":"IT","m":"Support / Helpdesk"},{"pn":"architecte fonctionnel transverse","s":"CyberSécurité","m":"Architecture"},{"pn":"expert wallix","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"analyste support monetique / huxley","s":"Finance","m":"Analyste"},{"pn":"devops engineer","s":"IT","m":"Cloud / DevOps"},{"pn":"30/04/2026","s":"IT","m":"IT"},{"pn":"formateur sap","s":"Formateur","m":"SAP / ERP"},{"pn":"chargee de communication / huxley","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"consultant technico fonctionnel sap sd/mm","s":"IT","m":"SAP / ERP"},{"pn":"lead developpeur java react","s":"IT","m":"Développement"},{"pn":"analyste cyber","s":"CyberSécurité","m":"Analyste"},{"pn":"consultante rpo talent acquisition","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur scripting","s":"IT","m":"Infrastructure"},{"pn":"architecte solution azure","s":"IT","m":"Cloud / DevOps"},{"pn":"developpeur","s":"IT","m":"Développement"},{"pn":"recruteur","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur etude et developpement java / j2ee","s":"IT","m":"Développement"},{"pn":"developpeur front end senior","s":"IT","m":"Développement"},{"pn":"data engineer","s":"IA","m":"Data / BI"},{"pn":"consultant sap","s":"IT","m":"SAP / ERP"},{"pn":"developpeur java/angular","s":"IT","m":"Développement"},{"pn":"ingenieur reseau","s":"IT","m":"Télécom / Réseau"},{"pn":"dev java springboot api en transverse","s":"IT","m":"Développement"},{"pn":"responsable mco tr3","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"business analyst graphtalk aia","s":"IT","m":"SAP / ERP"},{"pn":"consultant devops cloud","s":"IT","m":"Cloud / DevOps"},{"pn":"consultant support applicatif n2/n3","s":"IT","m":"Support / Helpdesk"},{"pn":"graphiste / huxley","s":"IT","m":"Designer"},{"pn":"business manager","s":"IT","m":"Commercial"},{"pn":"ingenieur reseaux et securite","s":"CyberSécurité","m":"Télécom / Réseau"},{"pn":"mission classique agrica","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"data ingenieur cloud","s":"IT","m":"Cloud / DevOps"},{"pn":"architect api management","s":"IT","m":"Architecture"},{"pn":"financial accountant","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"administrateur systeme et reseaux lille","s":"IT","m":"Infrastructure"},{"pn":"pmo cp sap","s":"IT","m":"SAP / ERP"},{"pn":"developpeur net / react","s":"IT","m":"Développement"},{"pn":"support technique informatique","s":"IT","m":"Support / Helpdesk"},{"pn":"ingenieur etudes et developpement java fullstack","s":"IT","m":"Support / Helpdesk"},{"pn":"developpeur angular","s":"IT","m":"Support / Helpdesk"},{"pn":"developpeur java / react","s":"IT","m":"Développement"},{"pn":"developpeur angular","s":"IT","m":"Développement"},{"pn":"prototypiste senior","s":"Engineering","m":"Testeur"},{"pn":"expert cloud devops aws","s":"IT","m":"Cloud / DevOps"},{"pn":"consultant amoa sap fico/sap bo","s":"IT","m":"SAP / ERP"},{"pn":"directeur de la construction","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"ingenieur de production","s":"IT","m":"Infrastructure"},{"pn":"developpeur atg ag2r au sein de l it factory","s":"IT","m":"Développement"},{"pn":"gestionnaire de flotte mobile","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur reseaux securite","s":"CyberSécurité","m":"CyberSécurité"},{"pn":"marketing artist","s":"IT","m":"Digital"},{"pn":"administrateur systemes junior","s":"IT","m":"Infrastructure"},{"pn":"product owner","s":"IT","m":"Chef de projet"},{"pn":"chargee de marketing / huxley","s":"IT","m":"Digital"},{"pn":"developpeur python odoo / huxley","s":"IT","m":"Développement"},{"pn":"consultant gestionnaire de donnees","s":"IT","m":"Data / BI"},{"pn":"developpeur back et front","s":"IT","m":"Développement"},{"pn":"developpeur power bi senior","s":"IT","m":"Data / BI"},{"pn":"expert sap retail","s":"IT","m":"SAP / ERP"},{"pn":"ingenieur support securite iam","s":"CyberSécurité","m":"IAM"},{"pn":"ingenieur cyber securite","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"analyste aml/kyc","s":"IT","m":"Testeur"},{"pn":"responsable de service retraite complementaire","s":"IT","m":"Management"},{"pn":"acheteur software metier","s":"IT","m":"Acheteur"},{"pn":"responsable comptable","s":"IT","m":"Management"},{"pn":"cyber security consultant","s":"CyberSécurité","m":"CyberSécurité"},{"pn":"ingenieur devops","s":"IT","m":"Cloud / DevOps"},{"pn":"ingenieur reseau securite","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"developpeuse back confirmee","s":"IT","m":"Développement"},{"pn":"lead developer jee","s":"IT","m":"Développement"},{"pn":"it support engineer","s":"IT","m":"Support / Helpdesk"},{"pn":"cloud devops","s":"IT","m":"Cloud / DevOps"},{"pn":"developpeur java angularjs","s":"IT","m":"Développement"},{"pn":"developpeur php / symfony expert","s":"IT","m":"Développement"},{"pn":"architecte gcp","s":"IT","m":"Cloud / DevOps"},{"pn":"developpeur java","s":"IT","m":"Développement"},{"pn":"developpeur fullstack","s":"IT","m":"Développement"},{"pn":"analyste produit","s":"Santé","m":"Fonctionnel / AMOA"},{"pn":"analyste risque de credit","s":"Finance","m":"Analyste"},{"pn":"architecte technique/po","s":"IT","m":"Architecture"},{"pn":"assistant documentaire","s":"Santé","m":"Fonctionnel / AMOA"},{"pn":"chef de projet integration","s":"IT","m":"Chef de projet"},{"pn":"ingenierie projet automatisme et informatique industrielle","s":"Engineering","m":"Automaticien"},{"pn":"chef de projet digital","s":"IT","m":"Digital"},{"pn":"coordinateur de test","s":"IT","m":"Chef de projet"},{"pn":"ingenieur tce","s":"Santé","m":"Santé"},{"pn":"dba oracle et oracle ebs","s":"IT","m":"Data / BI"},{"pn":"coordinateur systeme et reseau","s":"IT","m":"Chef de projet"},{"pn":"webmaster","s":"IT","m":"Digital"},{"pn":"drh","s":"Management de transition","m":"Fonctionnel / AMOA"},{"pn":"business analyst","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"developpeur net fullstack","s":"IT","m":"Développement"},{"pn":"formateur","s":"IT","m":"Formateur"},{"pn":"expert technique atm5","s":"Santé","m":"Santé"},{"pn":"moa","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"assistant documentaire","s":"Santé","m":"Fonctionnel / AMOA"},{"pn":"consultant iam","s":"CyberSécurité","m":"IAM"},{"pn":"testeur qa","s":"IT","m":"Testeur"},{"pn":"developpeur web","s":"IT","m":"Digital"},{"pn":"technicien support informatique niv 1 et 2","s":"IT","m":"Support / Helpdesk"},{"pn":"ingenieur de production","s":"IT","m":"Infrastructure"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"cloud project manager","s":"IT","m":"Chef de projet"},{"pn":"architecte cyber securite devsecops","s":"CyberSécurité","m":"Architecture"},{"pn":"ingenieur support iam","s":"CyberSécurité","m":"IAM"},{"pn":"expert iam siteminder","s":"CyberSécurité","m":"IAM"},{"pn":"expert cloud devops","s":"IT","m":"Cloud / DevOps"},{"pn":"developpeur javascript/angular","s":"IT","m":"Développement"},{"pn":"chef de projet iam","s":"CyberSécurité","m":"IAM"},{"pn":"architecte technique generaliste","s":"IT","m":"Architecture"},{"pn":"assistant po","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"product owner sfsc","s":"IT","m":"Chef de projet"},{"pn":"developpeur expert c","s":"IT","m":"Développement"},{"pn":"azure technical lead","s":"IT","m":"Cloud / DevOps"},{"pn":"dba","s":"IT","m":"Data / BI"},{"pn":"ingenieur securite senior","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"data analyst / data engineer","s":"IA","m":"Data / BI"},{"pn":"developpeur embarque","s":"IT","m":"Développement"},{"pn":"data engineer","s":"IA","m":"Data / BI"},{"pn":"ingenieur systeme et reseau","s":"IT","m":"Télécom / Réseau"},{"pn":"technicienn support","s":"IT","m":"Support / Helpdesk"},{"pn":"automaticien","s":"Engineering","m":"Automaticien"},{"pn":"software architect","s":"IT","m":"Architecture"},{"pn":"pilote du developpement de calculateurs multimedia et switch de planches de bord","s":"IA","m":"Développement"},{"pn":"ba pour roll out de l application fvl","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"technicien support de proximite","s":"IT","m":"Support / Helpdesk"},{"pn":"business project leader","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur ivv integration validation verification","s":"IT","m":"Testeur"},{"pn":"chargee affaire reglementaire cmc et enregistrement europe","s":"Santé","m":"Santé"},{"pn":"technicien superieur frontoffice","s":"IT","m":"Développement"},{"pn":"developpeur embarque confirme","s":"IT","m":"Développement"},{"pn":"digital software engineering and architecture","s":"IT","m":"Digital"},{"pn":"developpeur salesforce","s":"IT","m":"Développement"},{"pn":"consultant technico reglementaire","s":"Santé","m":"Santé"},{"pn":"charge d etude electricite","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"chef de projet dispositif medical","s":"Santé","m":"Chef de projet"},{"pn":"ingenieur developpeur java","s":"IT","m":"Développement"},{"pn":"apple exhibition","s":"IT","m":"Digital"},{"pn":"charge de mise en service","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"business analyst remediation mifid","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur automaticien","s":"Engineering","m":"Automaticien"},{"pn":"data scientist","s":"IA","m":"Data / BI"},{"pn":"developppeur delphi","s":"IT","m":"Développement"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"ingenieur securite operationnelle","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"ingenieur reseau / securite","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"consultant redacteur medical","s":"Santé","m":"Santé"},{"pn":"recruteur","s":"IT","m":"Commercial"},{"pn":"ingenieur devops","s":"IT","m":"Cloud / DevOps"},{"pn":"charge de mission orbis medication","s":"Santé","m":"Santé"},{"pn":"exploitation si","s":"IT","m":"Infrastructure"},{"pn":"architecte virtualisation","s":"IT","m":"Infrastructure"},{"pn":"responsable distribution","s":"Santé","m":"Management"},{"pn":"ingenieur automaticien etudes electriques","s":"Engineering","m":"Automaticien"},{"pn":"support informatique","s":"IT","m":"Support / Helpdesk"},{"pn":"service desk manager","s":"IT","m":"Support / Helpdesk"},{"pn":"developpeur fullstack","s":"IT","m":"Développement"},{"pn":"developpeur python","s":"IT","m":"Développement"},{"pn":"developpeur net / angular","s":"IT","m":"Développement"},{"pn":"data privacy officer","s":"IT","m":"Data / BI"},{"pn":"charge de mission ordonnancement","s":"IT","m":"Infrastructure"},{"pn":"consultant affaires reglementaires cmc","s":"Santé","m":"Santé"},{"pn":"chef de projet cartographie","s":"IT","m":"Chef de projet"},{"pn":"charge de recrutement","s":"IT","m":"Commercial"},{"pn":"charge de recrutements et projets rh","s":"IT","m":"Commercial"},{"pn":"chef d equipe usinage","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"chef de chantier","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"developpeur informatique","s":"IT","m":"Développement"},{"pn":"delivery manager mendix","s":"IT","m":"Management"},{"pn":"developpeur informatique","s":"IT","m":"Développement"},{"pn":"developpeur informatique","s":"IT","m":"Développement"},{"pn":"developpeur informatique","s":"IT","m":"Développement"},{"pn":"developpeur informatique","s":"IT","m":"Développement"},{"pn":"developpeur informatique","s":"IT","m":"Développement"},{"pn":"cheffe de projet evenementiel","s":"IT","m":"Commercial"},{"pn":"developpeur informatique","s":"IT","m":"Développement"},{"pn":"commercial","s":"IT","m":"Commercial"},{"pn":"compensation benefits specialist","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"expert cloud devops","s":"IT","m":"Cloud / DevOps"},{"pn":"technicien support","s":"IT","m":"Support / Helpdesk"},{"pn":"business analyst parametrer simcorp dimension","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"technicien support","s":"IT","m":"Support / Helpdesk"},{"pn":"ingenieur support applicatif confirme","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"adjoint responsable de plateforme","s":"IT","m":"Management"},{"pn":"analyste d integration sre","s":"IT","m":"Cloud / DevOps"},{"pn":"administrateur de base de donnee oracle et postgresql","s":"IT","m":"Data / BI"},{"pn":"conducteur d installations","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"conseil commercial","s":"IT","m":"Commercial"},{"pn":"devops cloud engineer","s":"IT","m":"Cloud / DevOps"},{"pn":"chargee affaires reglementaires","s":"Santé","m":"Santé"},{"pn":"technicien helpdesk","s":"IT","m":"Support / Helpdesk"},{"pn":"it infrastructure technical support","s":"IT","m":"Infrastructure"},{"pn":"developpeur ruby on rails","s":"IT","m":"Développement"},{"pn":"assistant technique it sap","s":"IT","m":"SAP / ERP"},{"pn":"conseil mobilite aerienne avancee","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"responsable metrologie","s":"Santé","m":"Management"},{"pn":"analyste soc n2","s":"CyberSécurité","m":"SOC"},{"pn":"assistante administrative","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"expert affaires reglementaires gspr et etiquetage","s":"Santé","m":"Santé"},{"pn":"conseiller hse","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"dev software engineer confirme","s":"IA","m":"Développement"},{"pn":"acheteur projet","s":"IT","m":"Acheteur"},{"pn":"data scientist developpeur rshiny","s":"IA","m":"Data / BI"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"chef de projet it finance rh","s":"IT","m":"Chef de projet"},{"pn":"developpeur front react","s":"IT","m":"Développement"},{"pn":"ingenieur etude et developpement c embarque","s":"IT","m":"Développement"},{"pn":"qa","s":"IT","m":"Testeur"},{"pn":"ingenieur iam","s":"CyberSécurité","m":"IAM"},{"pn":"packageur et integrateur citrix","s":"IT","m":"Infrastructure"},{"pn":"developpeur net / angular","s":"IT","m":"Développement"},{"pn":"assistante a maitrise d ouvrage","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"devops engineer","s":"IT","m":"Cloud / DevOps"},{"pn":"chargee assurance qualite / specialite artworks","s":"Santé","m":"Santé"},{"pn":"technicien support applicatif","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"developpeur angular","s":"IT","m":"Développement"},{"pn":"assistant administratif","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"data scientist","s":"IA","m":"Data / BI"},{"pn":"technicien support digital workplace","s":"IT","m":"Workspace"},{"pn":"consolidation et reporting financier","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"integrateur systemes industriels","s":"IT","m":"Infrastructure"},{"pn":"project engineering manager","s":"IT","m":"Management"},{"pn":"referent technique","s":"IT","m":"Infrastructure"},{"pn":"responsable relations bailleurs","s":"IT","m":"Management"},{"pn":"consultant altaix","s":"IT","m":"SAP / ERP"},{"pn":"pilote fonction elementaire","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"consultant analytique","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"acheteur it","s":"IT","m":"Acheteur"},{"pn":"enseignants chercheurs post doctorat","s":"Management de transition","m":"Management"},{"pn":"consultant cybersecurite","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"consultante conduite du changement / amoa","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"gestionnaire incident des systemes d information","s":"IT","m":"Infrastructure"},{"pn":"data engineer azure","s":"IT","m":"Cloud / DevOps"},{"pn":"responsable planification therapeutiques","s":"Santé","m":"Management"},{"pn":"recruteur","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"technicien support vip","s":"IT","m":"Support / Helpdesk"},{"pn":"technicien support de proximite","s":"IT","m":"Support / Helpdesk"},{"pn":"responsable operationnel magasins","s":"Santé","m":"Management"},{"pn":"product owner","s":"IT","m":"Chef de projet"},{"pn":"poste incident manager","s":"IT","m":"Support / Helpdesk"},{"pn":"developpeur java front","s":"IT","m":"Développement"},{"pn":"devops","s":"IT","m":"Cloud / DevOps"},{"pn":"responsable achats supply chain","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"responsable operationnel magasins","s":"Santé","m":"Management"},{"pn":"consultant battery storage warantty bess","s":"Engineering","m":"Général"},{"pn":"moe integrateur","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"developpeur fullstack","s":"IT","m":"Développement"},{"pn":"consultant bdoc","s":"IT","m":"Data / BI"},{"pn":"business analyst sc / api gw","s":"IT","m":"Développement"},{"pn":"consultant bi","s":"IT","m":"Data / BI"},{"pn":"chef de projet specialise dans le change advisory board cab","s":"IT","m":"Chef de projet"},{"pn":"ingenieur systeme et messagerie","s":"IT","m":"Infrastructure"},{"pn":"ingenieur data integration","s":"IT","m":"Data / BI"},{"pn":"consultant compliance","s":"Finance","m":"Analyste"},{"pn":"devops","s":"IT","m":"Cloud / DevOps"},{"pn":"consultant data","s":"IT","m":"Data"},{"pn":"consultant designe","s":"IT","m":"Designer"},{"pn":"consultant dlp","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"consultant sap mm/pp","s":"IT","m":"SAP / ERP"},{"pn":"gestionnaire back office","s":"IT","m":"Développement"},{"pn":"consultant assurance qualite remediation plan","s":"Santé","m":"Santé"},{"pn":"consultant en recrutement","s":"IT","m":"Commercial"},{"pn":"support technique informatique","s":"IT","m":"Support / Helpdesk"},{"pn":"consultant en recrutement","s":"IT","m":"Commercial"},{"pn":"devops","s":"IT","m":"Cloud / DevOps"},{"pn":"chef de projet communication","s":"IT","m":"Chef de projet"},{"pn":"administeur bdd sql/oracle","s":"IT","m":"Data / BI"},{"pn":"ingenieur devops","s":"IT","m":"Cloud / DevOps"},{"pn":"developpeur java / angular","s":"IT","m":"Développement"},{"pn":"consultant en tresorerie","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"consultant ifrs 16","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"data scientist ia llm","s":"IA","m":"Data / BI"},{"pn":"ingenieur data","s":"IT","m":"Data / BI"},{"pn":"data scientist ia llm","s":"IA","m":"Data / BI"},{"pn":"dev java","s":"IT","m":"Développement"},{"pn":"platform architect / servicenow implementation","s":"IT","m":"Architecture"},{"pn":"developpeur java","s":"IT","m":"Développement"},{"pn":"product owner","s":"IT","m":"Chef de projet"},{"pn":"infrastructure and network manager securite","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"chef de projet applicatif","s":"IT","m":"Chef de projet"},{"pn":"administrateur systeme","s":"IT","m":"Infrastructure"},{"pn":"administrateur data/ia","s":"IA","m":"Data"},{"pn":"ba data hub","s":"IT","m":"Data / BI"},{"pn":"chargee de support applicatif","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"agile master scrum master","s":"IT","m":"Chef de projet"},{"pn":"developpeur fullstack","s":"IT","m":"Développement"},{"pn":"product owner","s":"IT","m":"Chef de projet"},{"pn":"developpeur python","s":"IT","m":"Développement"},{"pn":"responsable packaging","s":"IT","m":"Management"},{"pn":"specialiste affaires reglementaires","s":"Santé","m":"Santé"},{"pn":"ingenieur de production","s":"CyberSécurité","m":"Infrastructure"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"ingenieur devops","s":"IT","m":"Cloud / DevOps"},{"pn":"developpeur front","s":"IT","m":"Développement"},{"pn":"consultant expert ad / architecte ad","s":"IT","m":"Architecture"},{"pn":"product owner","s":"IT","m":"Chef de projet"},{"pn":"consultant sap module mm / pp","s":"IT","m":"SAP / ERP"},{"pn":"senior devops engineer","s":"IT","m":"Cloud / DevOps"},{"pn":"pmo direction de projet gs1","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"senior data scientist","s":"IA","m":"Data / BI"},{"pn":"consultant informatique","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"consultant integration talend","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"data engineer","s":"IA","m":"Data / BI"},{"pn":"consultant it","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"business analyst","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur de production","s":"IT","m":"Infrastructure"},{"pn":"chef de projet technique","s":"IT","m":"Chef de projet"},{"pn":"consultant lcb ft","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"consultant mainframe","s":"IT","m":"Infrastructure"},{"pn":"consultant marketing","s":"IT","m":"Digital"},{"pn":"responsable outillage qualification billettique","s":"IT","m":"Management"},{"pn":"chargee assurance qualite operationnelle","s":"Santé","m":"Santé"},{"pn":"consultant mes apriso","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"senior embedded developer","s":"IT","m":"Développement"},{"pn":"chef de projet it","s":"IT","m":"Chef de projet"},{"pn":"administrateur reseau et securite","s":"CyberSécurité","m":"Télécom / Réseau"},{"pn":"manager de transition","s":"Management de transition","m":"Management"},{"pn":"chef de projet travaux neufs","s":"IT","m":"Chef de projet"},{"pn":"devops","s":"IT","m":"Cloud / DevOps"},{"pn":"responsable maintenance","s":"Santé","m":"Management"},{"pn":"assistance technique technicien support proximite","s":"IT","m":"Support / Helpdesk"},{"pn":"consultant mise en conformite dora","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"developpeur net angular","s":"IT","m":"Développement"},{"pn":"business analyst support front to back","s":"IT","m":"Développement"},{"pn":"expert cybersecurite isp","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"responsable aq calidation","s":"Santé","m":"Management"},{"pn":"devops","s":"IT","m":"Cloud / DevOps"},{"pn":"ingenieur fullstack java angular","s":"IT","m":"Développement"},{"pn":"responsable achat","s":"IT","m":"Management"},{"pn":"ingenieur de production devops","s":"IT","m":"Cloud / DevOps"},{"pn":"developer expert python/java","s":"IT","m":"Développement"},{"pn":"ingenieur qualite","s":"Santé","m":"Santé"},{"pn":"consultant cybersecurite grc pilote audit","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"specialiste affaires reglementaires dm","s":"Santé","m":"Santé"},{"pn":"product owner","s":"IT","m":"Chef de projet"},{"pn":"consultante en automatisation des tests","s":"IT","m":"Testeur"},{"pn":"admninistrateur systeme windows / mac","s":"IT","m":"Infrastructure"},{"pn":"expert n3 ibm operational decision manager","s":"IT","m":"Management"},{"pn":"ingenieur qa salesforce","s":"IT","m":"Testeur"},{"pn":"developpeur java","s":"IT","m":"Développement"},{"pn":"devops","s":"IT","m":"Cloud / DevOps"},{"pn":"ingenieur reseaux et securite","s":"CyberSécurité","m":"Télécom / Réseau"},{"pn":"chargee affaires reglementaires et assurance qualite","s":"Santé","m":"Santé"},{"pn":"ingenieur de production","s":"CyberSécurité","m":"Infrastructure"},{"pn":"administateur base de donnees smartplant","s":"IT","m":"Data / BI"},{"pn":"specialiste affaires reglementaires dm","s":"Santé","m":"Santé"},{"pn":"ingenieur reseau","s":"IT","m":"Télécom / Réseau"},{"pn":"developpeur java","s":"IT","m":"Développement"},{"pn":"developpeur fullstack java angular","s":"IT","m":"Développement"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"databa base administrator","s":"IT","m":"Data / BI"},{"pn":"technicien support","s":"IT","m":"Support / Helpdesk"},{"pn":"chef de projet moa","s":"IT","m":"Chef de projet"},{"pn":"consultant devsecops et apps security","s":"CyberSécurité","m":"Cloud / DevOps"},{"pn":"responsable planning et ordonnancement","s":"Santé","m":"Management"},{"pn":"chef de projet developpement cosmetique chez biocodex","s":"Santé","m":"Chef de projet"},{"pn":"technicien test electronique","s":"IT","m":"Testeur"},{"pn":"consultant modelisation et processus metier","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"tests de performance minint","s":"IT","m":"Testeur"},{"pn":"acheteur","s":"IT","m":"Acheteur"},{"pn":"product owner","s":"IT","m":"Chef de projet"},{"pn":"technical product owner","s":"IT","m":"Chef de projet"},{"pn":"pilote d exploitation","s":"IT","m":"Infrastructure"},{"pn":"parametreur et/ou developpeur progiciel cleva","s":"IT","m":"Développement"},{"pn":"subject matter expert sme ai data analytics","s":"IT","m":"Data / BI"},{"pn":"tech lead java","s":"IT","m":"Développement"},{"pn":"data analyst","s":"IT","m":"Data / BI"},{"pn":"ingenieur de production","s":"IT","m":"Infrastructure"},{"pn":"consultant power platform","s":"IT","m":"Data / BI"},{"pn":"consultant r d","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"developpeur android","s":"IT","m":"Développement"},{"pn":"data ingenieur gcp","s":"IT","m":"Cloud / DevOps"},{"pn":"technicien support","s":"IT","m":"Support / Helpdesk"},{"pn":"consultant retail","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"consultant risque it","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"responsable de domaine credit","s":"IT","m":"Management"},{"pn":"chef de projet technique","s":"IT","m":"Chef de projet"},{"pn":"test manager","s":"IT","m":"Testeur"},{"pn":"consultant senior en excellence operationnelle","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"chef fe de projet affaires reglementaires global","s":"Santé","m":"Santé"},{"pn":"consultant senior pilotage de performance","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur de production","s":"IT","m":"Infrastructure"},{"pn":"lead front end","s":"IT","m":"Développement"},{"pn":"consultant seo","s":"IT","m":"Digital"},{"pn":"manager aq","s":"Santé","m":"Management"},{"pn":"ingenierie devops","s":"IT","m":"Cloud / DevOps"},{"pn":"acheteur projet","s":"IT","m":"Acheteur"},{"pn":"chargee d affaires reglementaires controle des elements promotionnels","s":"Santé","m":"Santé"},{"pn":"developpeur java angular senior","s":"IT","m":"Développement"},{"pn":"lead developpeur java angular","s":"IT","m":"Développement"},{"pn":"associate director global pv operations senior pharmacovigilance consultant","s":"Santé","m":"Management"},{"pn":"ingenieur etudes et developpement java fullstack","s":"IT","m":"Développement"},{"pn":"data analyst","s":"IT","m":"Data / BI"},{"pn":"chef de projet r d","s":"IT","m":"Chef de projet"},{"pn":"business analyst assurance credit","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"chef de projet cfo","s":"IT","m":"Chef de projet"},{"pn":"data scientist","s":"IA","m":"Data / BI"},{"pn":"business analyst","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur qa","s":"IT","m":"Testeur"},{"pn":"de dba senior production","s":"IT","m":"Data / BI"},{"pn":"pmo junior","s":"IT","m":"Chef de projet"},{"pn":"program manager","s":"IT","m":"Chef de projet"},{"pn":"expert data","s":"IT","m":"Data / BI"},{"pn":"testeur de performance","s":"IT","m":"Testeur"},{"pn":"expert devops","s":"IT","m":"Cloud / DevOps"},{"pn":"administrateur powershell","s":"IT","m":"Data / BI"},{"pn":"developpeur nodejs","s":"IT","m":"Développement"},{"pn":"data engineer","s":"IA","m":"Data / BI"},{"pn":"testeur fontionnel","s":"IT","m":"Testeur"},{"pn":"consultant service now/ referent cmdb","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"consultant sharepoint","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"consultant sharepoint","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"architecte d entreprise","s":"IT","m":"Architecture"},{"pn":"manager de transition supply chain","s":"Management de transition","m":"Fonctionnel / AMOA"},{"pn":"senior fullstack developer","s":"IT","m":"Développement"},{"pn":"consultant pmo","s":"IT","m":"Chef de projet"},{"pn":"support niveau 3","s":"IT","m":"Support / Helpdesk"},{"pn":"ingenieur cybersecurite","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"technicien test electronique","s":"IT","m":"Testeur"},{"pn":"ingenieur d interfaces","s":"Engineering","m":"Electronique"},{"pn":"product owner","s":"IT","m":"Chef de projet"},{"pn":"gestionnaire back office operations de marche","s":"Finance","m":"Analyste"},{"pn":"charge affaires reglementaires senior","s":"Santé","m":"Santé"},{"pn":"ingenieur reseaux","s":"IT","m":"Télécom / Réseau"},{"pn":"rpo","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"pilotage d assurance qualite de systemes d informations pour servier","s":"Santé","m":"Infrastructure"},{"pn":"developpeur embarque senior","s":"IT","m":"Développement"},{"pn":"consultant devops","s":"IT","m":"Cloud / DevOps"},{"pn":"architecte securite huxley","s":"CyberSécurité","m":"Architecture"},{"pn":"responsable it et support","s":"IT","m":"Support / Helpdesk"},{"pn":"consultant si finance","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"charge qualification/validation hvac real","s":"IT","m":"Testeur"},{"pn":"responsable r d","s":"IT","m":"Management"},{"pn":"chef de projet demenagement","s":"IT","m":"Chef de projet"},{"pn":"ingenieur electronique","s":"Engineering","m":"Electronique"},{"pn":"consultant sirh","s":"IT","m":"SAP / ERP"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"charge de reporting reglementaire","s":"Santé","m":"Santé"},{"pn":"ingenieur reseaux","s":"IT","m":"Télécom / Réseau"},{"pn":"responsable planning et ordonnancement","s":"Santé","m":"Management"},{"pn":"cheffe de projet affaires reglementaires cmc","s":"Santé","m":"Santé"},{"pn":"product manager","s":"IT","m":"Management"},{"pn":"consultant technique sharepoint office 365","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"specialiste toxicologue et r d precliniques","s":"Santé","m":"Santé"},{"pn":"consultant workday","s":"IT","m":"Workday"},{"pn":"ingenieur genie des procedes","s":"Engineering","m":"Electronique"},{"pn":"charge de support applicatif","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"data engieneer","s":"IA","m":"Général"},{"pn":"test lead dans le cadre du projet workday","s":"IT","m":"Workday"},{"pn":"consultant data engineer","s":"IA","m":"Data / BI"},{"pn":"consultant workday","s":"IT","m":"Workday"},{"pn":"ingenieur informatique industrielle scada","s":"Engineering","m":"Electronique"},{"pn":"scrum master it","s":"IT","m":"SCRUM"},{"pn":"ingenieur soc","s":"CyberSécurité","m":"SOC"},{"pn":"acheteur it","s":"IT","m":"Acheteur"},{"pn":"consultant","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"technicien helpdesk / proximite","s":"IT","m":"Support / Helpdesk"},{"pn":"consultant devops aws","s":"IT","m":"Cloud / DevOps"},{"pn":"consultante cegid y2","s":"IT","m":"SAP / ERP"},{"pn":"responsable industrialisation","s":"IT","m":"Management"},{"pn":"scrum master it","s":"IT","m":"Chef de projet"},{"pn":"ingenieur d etudes et developpement","s":"IT","m":"Développement"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"product owner sirh","s":"IT","m":"Chef de projet"},{"pn":"concepteur developpeur java","s":"IT","m":"Développement"},{"pn":"consultante contrats / finance","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"pmo sap","s":"IT","m":"SAP / ERP"},{"pn":"consultante exstream","s":"IT","m":"SAP / ERP"},{"pn":"consultant cyberark","s":"CyberSécurité","m":"CyberSécurité"},{"pn":"consultante senior sirh","s":"IT","m":"SAP / ERP"},{"pn":"tech lead devops","s":"IT","m":"Cloud / DevOps"},{"pn":"consultante servicenow","s":"IT","m":"SAP / ERP"},{"pn":"chef de projet machine speciale","s":"IT","m":"Chef de projet"},{"pn":"consultant developer tsql","s":"IT","m":"Développement"},{"pn":"rpo","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur systemes","s":"IT","m":"Infrastructure"},{"pn":"securite containers pour bpce","s":"CyberSécurité","m":"Securité"},{"pn":"developpeur fullstack senior","s":"IT","m":"Développement"},{"pn":"site manager","s":"IT","m":"Management"},{"pn":"designer","s":"IT","m":"Designer"},{"pn":"developpeur java kotlin","s":"IT","m":"Développement"},{"pn":"consultante sirh","s":"IT","m":"SAP / ERP"},{"pn":"responsable technique","s":"IT","m":"Management"},{"pn":"support informatique","s":"IT","m":"Support / Helpdesk"},{"pn":"developpeur net","s":"IT","m":"Développement"},{"pn":"chef de projet r d","s":"Santé","m":"Chef de projet"},{"pn":"consultante workday","s":"IT","m":"Workday"},{"pn":"developpeur applicatif","s":"IT","m":"Développement"},{"pn":"control systrem developers","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"analyste cybersecurite n3","s":"CyberSécurité","m":"CyberSécurité"},{"pn":"expert supply chain","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"l","s":"Santé","m":"Santé"},{"pn":"developpeur java data","s":"IT","m":"Développement"},{"pn":"chargee affaires reglementaires","s":"Santé","m":"Santé"},{"pn":"business analyst","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"responsable d application cobol","s":"IT","m":"Développement"},{"pn":"administrateur systeme","s":"IT","m":"Infrastructure"},{"pn":"specialiste assurance qualite systeme","s":"Santé","m":"Infrastructure"},{"pn":"support m3","s":"IT","m":"Support / Helpdesk"},{"pn":"ingenieur reseau extreme networks","s":"IT","m":"Télécom / Réseau"},{"pn":"sap product manager","s":"IT","m":"SAP / ERP"},{"pn":"consultant developpeur ruby on rails","s":"IT","m":"Développement"},{"pn":"ingenieur it migration et compatibilite des applications","s":"IT","m":"SAP / ERP"},{"pn":"developpeuse php symfony react","s":"IT","m":"Développement"},{"pn":"ingenieur devops aws","s":"IT","m":"Cloud / DevOps"},{"pn":"architecte solutions","s":"IT","m":"Architecture"},{"pn":"ingenieur lean / amelioration continue","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"coordinateur it","s":"IT","m":"Chef de projet"},{"pn":"ingenieur reseaux et","s":"IT","m":"Télécom / Réseau"},{"pn":"chef de projet step et tuyauterie process","s":"Santé","m":"Chef de projet"},{"pn":"ingenieur reseaux et securite","s":"CyberSécurité","m":"Télécom / Réseau"},{"pn":"controleur de gestion industriel","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"business analyst","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"it project manager","s":"IT","m":"Chef de projet"},{"pn":"developpeur front angular","s":"IT","m":"Développement"},{"pn":"responsable comptable","s":"IT","m":"Management"},{"pn":"consultant business analyst","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur developpeur fullstack","s":"IT","m":"Développement"},{"pn":"chef de projet sirh","s":"IT","m":"Chef de projet"},{"pn":"responsable travaux cfa","s":"IT","m":"Management"},{"pn":"analyste soc","s":"CyberSécurité","m":"SOC"},{"pn":"devops","s":"IT","m":"Cloud / DevOps"},{"pn":"acheteur indirect","s":"IT","m":"Acheteur"},{"pn":"controleur eia","s":"Engineering","m":"Automaticien"},{"pn":"ingenieur qualite","s":"Santé","m":"Santé"},{"pn":"cp web digital","s":"IT","m":"Digital"},{"pn":"tech support vip","s":"IT","m":"Support / Helpdesk"},{"pn":"ingenieur java","s":"IT","m":"Développement"},{"pn":"csm / ppo technique","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"developpeur python","s":"IT","m":"Développement"},{"pn":"construction manager","s":"Santé","m":"Management"},{"pn":"ingenieur systemes et reseaux","s":"IT","m":"Télécom / Réseau"},{"pn":"technicien qualite pqr","s":"Santé","m":"Santé"},{"pn":"customer journey expert medior","s":"IT","m":"Commercial"},{"pn":"ingenieur logiciel","s":"IT","m":"Développement"},{"pn":"construction manager and mechanical supervisor","s":"Engineering","m":"Management"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"auditeur ingenieur systeme linux","s":"IT","m":"Infrastructure"},{"pn":"responsable des operations cliniques","s":"Santé","m":"Management"},{"pn":"manager du service support en infogerance","s":"IT","m":"Support / Helpdesk"},{"pn":"developpeur php","s":"IT","m":"Développement"},{"pn":"support dans le cadre d une inspection fda","s":"CyberSécurité","m":"Support / Helpdesk"},{"pn":"30/06/20","s":"Santé","m":"Santé"},{"pn":"responsable administratif et financier","s":"Finance","m":"Management"},{"pn":"responsable de la maintenance des equipements de securite utilites","s":"Santé","m":"Management"},{"pn":"chef de projet data / run crm","s":"IT","m":"Chef de projet"},{"pn":"developpeur fullstack senior expert angular","s":"IT","m":"Développement"},{"pn":"consultant sap","s":"IT","m":"SAP / ERP"},{"pn":"chef de projets infrastructures","s":"IT","m":"Chef de projet"},{"pn":"directeur de projet salesforce","s":"Management de transition","m":"Management"},{"pn":"developpeur mainframe","s":"IT","m":"Développement"},{"pn":"daf de transition","s":"Management de transition","m":"Finance"},{"pn":"data","s":"IT","m":"Data / BI"},{"pn":"chef de projet workplace","s":"IT","m":"Workspace"},{"pn":"rpo","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"dessinateur projeteur solidworks","s":"Engineering","m":"Designer"},{"pn":"international marketing consultant","s":"Santé","m":"Santé"},{"pn":"consultant sap ewm","s":"IT","m":"SAP / ERP"},{"pn":"ingenieur materiaux","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"responsable de site adjoint","s":"IT","m":"Management"},{"pn":"digital media strategist","s":"IT","m":"Digital"},{"pn":"responsable restauration","s":"IT","m":"Management"},{"pn":"chef de projet homologation","s":"IT","m":"Chef de projet"},{"pn":"digital workspace engineer","s":"IT","m":"Workspace"},{"pn":"developpeur back end moteur de recherche","s":"IT","m":"Développement"},{"pn":"business analyst","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"rpo","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"enseignant technique","s":"Formateur","m":"IT"},{"pn":"consultant data rh","s":"IT","m":"Data / BI"},{"pn":"epic owner loterie","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"consultante en pharmacie secteur pharmacovigilance","s":"Santé","m":"Santé"},{"pn":"chef de projet moules et presses a injecter","s":"IT","m":"Chef de projet"},{"pn":"consultant sap ewm","s":"IT","m":"SAP / ERP"},{"pn":"ingenieur analyste cybersecurite","s":"CyberSécurité","m":"Analyste"},{"pn":"responsable hse","s":"IT","m":"Management"},{"pn":"developpeur python","s":"IT","m":"Développement"},{"pn":"administrateur fonctionnel netsuite","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"ingenierie cloud devops azure","s":"IT","m":"Cloud / DevOps"},{"pn":"data engineer senior","s":"IA","m":"Data / BI"},{"pn":"consultant qa experimente","s":"IT","m":"Testeur"},{"pn":"ergonome","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"developpeur full stack","s":"IT","m":"Développement"},{"pn":"events communication executive","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"developpeur python","s":"IT","m":"Développement"},{"pn":"project quality manager/ head of quality","s":"IT","m":"Management"},{"pn":"developpeur senior fullstack","s":"IT","m":"Développement"},{"pn":"responsable du controle de gestion assurance","s":"IT","m":"Management"},{"pn":"expert aix","s":"IT","m":"Infrastructure"},{"pn":"expert cft","s":"IT","m":"Infrastructure"},{"pn":"expert ia","s":"IA","m":"Fonctionnel / AMOA"},{"pn":"preventeur hse","s":"Santé","m":"Santé"},{"pn":"amoa sap","s":"IT","m":"SAP / ERP"},{"pn":"developpeur senior net angular","s":"IT","m":"Développement"},{"pn":"developpeur python quantitatif","s":"IT","m":"Développement"},{"pn":"expert ivvq","s":"IT","m":"Testeur"},{"pn":"ingenieur materiaux /mecanique","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"chef de projet senior","s":"IT","m":"Chef de projet"},{"pn":"consultante affaires reglementaires","s":"Santé","m":"Santé"},{"pn":"architecte reseau et securite","s":"CyberSécurité","m":"Télécom / Réseau"},{"pn":"consultant affaires reglementaires","s":"Santé","m":"Santé"},{"pn":"site manager photovoltaique / directeur travaux","s":"Management de transition","m":"Management"},{"pn":"business tooling admin vba/sql","s":"IT","m":"Data / BI"},{"pn":"expert risk et reporting financier","s":"Finance","m":"Risk"},{"pn":"developpeur java fullstack","s":"IT","m":"Développement"},{"pn":"developpeur","s":"IT","m":"Développement"},{"pn":"senior business analyst","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"expert design control dispositifs medicaux","s":"Santé","m":"Santé"},{"pn":"developpeur web php symfony","s":"IT","m":"Digital"},{"pn":"expert technique","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"consultante affaires reglementaires","s":"Santé","m":"Santé"},{"pn":"expert technique elk","s":"Finance","m":"Analyste"},{"pn":"product owner / product manager","s":"IT","m":"Chef de projet"},{"pn":"technicien support itinerant","s":"IT","m":"Support / Helpdesk"},{"pn":"chef de projet produit nucleaire","s":"IT","m":"Chef de projet"},{"pn":"consultante devops kubernetes","s":"IT","m":"Cloud / DevOps"},{"pn":"expert ui path","s":"IT","m":"Designer"},{"pn":"chef de projet","s":"Santé","m":"Chef de projet"},{"pn":"responsable commercial","s":"IT","m":"Management"},{"pn":"expert webgetaway hno","s":"IT","m":"Digital"},{"pn":"projet marketing cloud","s":"IT","m":"Cloud / DevOps"},{"pn":"developpeur php","s":"IT","m":"Développement"},{"pn":"chef de projet / business analyst","s":"IT","m":"Chef de projet"},{"pn":"aem developer","s":"IT","m":"Développement"},{"pn":"charge de support sap","s":"IT","m":"SAP / ERP"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"key account manager","s":"Santé","m":"Management"},{"pn":"developpement web pour le cnas","s":"IT","m":"Digital"},{"pn":"contract manager","s":"IT","m":"Management"},{"pn":"administrateur poste de travail et vdi","s":"IT","m":"Data / BI"},{"pn":"ingenieur moex cfo/cfa","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur reseaux securite","s":"CyberSécurité","m":"Télécom / Réseau"},{"pn":"consultant support it n1/n2","s":"IT","m":"Support / Helpdesk"},{"pn":"consultant front end","s":"IT","m":"Développement"},{"pn":"ingenieur systeme","s":"IT","m":"Infrastructure"},{"pn":"expert zabbix","s":"IT","m":"SAP / ERP"},{"pn":"hse manager","s":"IT","m":"Management"},{"pn":"ingenieur de production","s":"IT","m":"Infrastructure"},{"pn":"expertise quality engineering","s":"IT","m":"Testeur"},{"pn":"developpeur cloud natif","s":"IT","m":"Cloud / DevOps"},{"pn":"developpeur python","s":"IT","m":"Développement"},{"pn":"ingenieur iam","s":"CyberSécurité","m":"IAM"},{"pn":"gestionnaire adv","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"developpeur senior","s":"IT","m":"Développement"},{"pn":"responsable methode et process","s":"IT","m":"Management"},{"pn":"gestionnaire de flotte de vehicule","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"gestionnaire de flotte mobile","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"assistant rssi","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"gestionnaire de flotte mobile","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"data analyste","s":"IT","m":"Data / BI"},{"pn":"eos demand pmo coordinator","s":"IT","m":"Chef de projet"},{"pn":"dba","s":"IT","m":"Data / BI"},{"pn":"developpeur r d","s":"IT","m":"Développement"},{"pn":"developpeur java eclipse rcp","s":"IT","m":"Développement"},{"pn":"gestionnaire de paie","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"developpeur full stack front end et back end","s":"IT","m":"Développement"},{"pn":"chef de projet infrastructure","s":"IT","m":"Chef de projet"},{"pn":"responsable rh","s":"IT","m":"Management"},{"pn":"formateur sap pm","s":"IT","m":"SAP / ERP"},{"pn":"developpeur full stack front end et back end","s":"IT","m":"Développement"},{"pn":"key account manager","s":"IT","m":"Management"},{"pn":"specialiste assurance qualite systeme","s":"Santé","m":"Infrastructure"},{"pn":"chef de projet equipements et process","s":"Santé","m":"Chef de projet"},{"pn":"gestionnaire de parc et technicien load","s":"Engineering","m":"Support / Helpdesk"},{"pn":"ingenieur qualite fournisseur","s":"Santé","m":"Santé"},{"pn":"data scientist","s":"IA","m":"Data / BI"},{"pn":"support hse chantier","s":"IT","m":"Support / Helpdesk"},{"pn":"product owner technico fonctionnel","s":"CyberSécurité","m":"Chef de projet"},{"pn":"ingenieur de production","s":"IT","m":"Infrastructure"},{"pn":"technicien support n2","s":"IT","m":"Support / Helpdesk"},{"pn":"gestionnaire middle office","s":"Finance","m":"Analyste"},{"pn":"analyste fonctionnel","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"pmo roadmaps","s":"IT","m":"Chef de projet"},{"pn":"charge affaires reglementaires","s":"Santé","m":"Santé"},{"pn":"ingenieur integration logiciel et infrastructure de fabrication radio","s":"IT","m":"Infrastructure"},{"pn":"gestionnaire middle office de dette privee","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"developpeur servicenow","s":"IT","m":"Développement"},{"pn":"business analyst expert sap mdm mdg","s":"IT","m":"SAP / ERP"},{"pn":"chef de projet machine speciale","s":"IT","m":"Chef de projet"},{"pn":"senior data enginee","s":"IA","m":"Data / BI"},{"pn":"mission de lead test","s":"IT","m":"Testeur"},{"pn":"lead developpeur","s":"IT","m":"Développement"},{"pn":"analyste soc","s":"CyberSécurité","m":"SOC"},{"pn":"ingenieur de production senior","s":"IT","m":"Infrastructure"},{"pn":"ingenieur bureau d etudes ftth","s":"Engineering","m":"Mécanique"},{"pn":"chef de projet telecoms","s":"IT","m":"Chef de projet"},{"pn":"ingenieur calcul mecanique","s":"Engineering","m":"Mécanique"},{"pn":"developpeur angular","s":"IT","m":"Développement"},{"pn":"architecte reseau","s":"IT","m":"Télécom / Réseau"},{"pn":"developpeuse talend","s":"IT","m":"Développement"},{"pn":"charge de suivi de production","s":"IT","m":"Infrastructure"},{"pn":"architecte cloud","s":"IT","m":"Cloud / DevOps"},{"pn":"test engineer","s":"IT","m":"Testeur"},{"pn":"acheteur g a","s":"IT","m":"Acheteur"},{"pn":"developpeur sql","s":"IT","m":"Développement"},{"pn":"consultant test qa","s":"IT","m":"Testeur"},{"pn":"chef de projet it","s":"IT","m":"Chef de projet"},{"pn":"responsable qualite production","s":"Santé","m":"Management"},{"pn":"ingenieur commissionning et qualification","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"chef de projet ia","s":"IT","m":"Chef de projet"},{"pn":"developpeur windev","s":"IT","m":"Développement"},{"pn":"events excellence project manager","s":"Santé","m":"Chef de projet"},{"pn":"developpeur senior","s":"IT","m":"Développement"},{"pn":"technicien support vip","s":"IT","m":"Support / Helpdesk"},{"pn":"rpo technical recruiter","s":"IT","m":"Commercial"},{"pn":"office manager","s":"IT","m":"Management"},{"pn":"sales development representative","s":"IT","m":"Développement"},{"pn":"business analyst pleiades","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"assistante commerciale grands comptes","s":"Santé","m":"Santé"},{"pn":"analyste soc n2","s":"CyberSécurité","m":"SOC"},{"pn":"testeur fonctionnel","s":"CyberSécurité","m":"Testeur"},{"pn":"analyste d exploitation","s":"IT","m":"Infrastructure"},{"pn":"analyste fonctionnel","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"project manager data migration","s":"IT","m":"Chef de projet"},{"pn":"data engineer","s":"IA","m":"Data / BI"},{"pn":"ingenieur qa","s":"IT","m":"Testeur"},{"pn":"inspecteur revue documentaire","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"developpeur php symfony","s":"IT","m":"Développement"},{"pn":"directeur de projet","s":"Management de transition","m":"Management"},{"pn":"technicien support","s":"IT","m":"Support / Helpdesk"},{"pn":"data ingenieur","s":"IA","m":"Data / BI"},{"pn":"chef de projet it","s":"IT","m":"Chef de projet"},{"pn":"responsable de support sig","s":"IT","m":"Support / Helpdesk"},{"pn":"business analyst fircosoft","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"integrateur de donnees","s":"IT","m":"Data / BI"},{"pn":"ingenieur metallographique","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"integrateur logiciel","s":"IT","m":"Développement"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"ingenieur qualite fournisseur","s":"Santé","m":"Qualité"},{"pn":"charge de developpement technique","s":"IT","m":"Développement"},{"pn":"chef de projet run","s":"IT","m":"Chef de projet"},{"pn":"integrateur verificateur r d","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"consultant devops cloud","s":"IT","m":"Cloud / DevOps"},{"pn":"developpeur back end","s":"IT","m":"Développement"},{"pn":"sales development representative","s":"IT","m":"Développement"},{"pn":"consultant supply chain","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"integrateur web","s":"IT","m":"Digital"},{"pn":"data engineer","s":"IA","m":"Data / BI"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"charge de support applicatif","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"architecte solution api","s":"IT","m":"Architecture"},{"pn":"technicien n2 / coordinateur technique","s":"IT","m":"Chef de projet"},{"pn":"technicien support","s":"IT","m":"Support / Helpdesk"},{"pn":"ingenieur mlops","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"program manager","s":"IT","m":"Chef de projet"},{"pn":"ingenieur qa fonctionnel","s":"CyberSécurité","m":"Testeur"},{"pn":"ingenieur qualite","s":"Santé","m":"Santé"},{"pn":"integration lead","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"scrum master international","s":"IT","m":"Chef de projet"},{"pn":"developpeur","s":"IT","m":"Développement"},{"pn":"integration nouveau programme de fidelite casino","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"developpeuse angular","s":"IT","m":"Développement"},{"pn":"ingenieur de production","s":"IT","m":"Infrastructure"},{"pn":"integratrice web","s":"IT","m":"Digital"},{"pn":"interim hr professional","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"contract manager","s":"Santé","m":"Management"},{"pn":"acheteur transport","s":"IT","m":"Acheteur"},{"pn":"it business partner labo","s":"Santé","m":"Fonctionnel / AMOA"},{"pn":"acheteur it senior hardware / software / materiel","s":"IT","m":"Acheteur"},{"pn":"chargee affaires reglementaires dm","s":"Santé","m":"Santé"},{"pn":"it ops","s":"IT","m":"Cloud / DevOps"},{"pn":"support commissioning qualification projet phoenix","s":"IT","m":"Support / Helpdesk"},{"pn":"it senior auditor","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur qualite","s":"Santé","m":"Santé"},{"pn":"chef de projet tce","s":"IT","m":"Chef de projet"},{"pn":"devsecops","s":"CyberSécurité","m":"Cloud / DevOps"},{"pn":"expert pl/sql dba oracle","s":"IT","m":"Data / BI"},{"pn":"business analyst","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"devops infrastructure engineer","s":"IT","m":"Cloud / DevOps"},{"pn":"coordinatrice pentester confirme","s":"CyberSécurité","m":"Testeur"},{"pn":"ingenieur reseaux et securite","s":"CyberSécurité","m":"Télécom / Réseau"},{"pn":"business support sap fi co","s":"IT","m":"SAP / ERP"},{"pn":"architecte systeme reseau securite","s":"CyberSécurité","m":"Télécom / Réseau"},{"pn":"dba sybas/oracle","s":"IT","m":"Data / BI"},{"pn":"technicien support vip","s":"IT","m":"Support / Helpdesk"},{"pn":"chnicien support","s":"IT","m":"Support / Helpdesk"},{"pn":"dba senior","s":"IT","m":"Data / BI"},{"pn":"chef de projet deploiement","s":"IT","m":"Chef de projet"},{"pn":"ingenieure data","s":"IA","m":"Data / BI"},{"pn":"kam","s":"IT","m":"Commercial"},{"pn":"formateur stockage munition","s":"IT","m":"Formateur"},{"pn":"ingenieur de production devops","s":"CyberSécurité","m":"Cloud / DevOps"},{"pn":"developpeur full stack editique","s":"IT","m":"Développement"},{"pn":"data analyst","s":"IT","m":"Data / BI"},{"pn":"charge controle de la publicite","s":"Santé","m":"Santé"},{"pn":"ingenieur procede","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"product manager","s":"IT","m":"Management"},{"pn":"approvisionneur","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"redacteur medical / evaluateur cliniques dispositifs medicaux","s":"Santé","m":"Santé"},{"pn":"developpeur senior salesforce","s":"IT","m":"Développement"},{"pn":"kam","s":"IT","m":"Commercial"},{"pn":"kam","s":"IT","m":"Commercial"},{"pn":"directeur supply chain","s":"Management de transition","m":"Fonctionnel / AMOA"},{"pn":"expert fonctionnel ivalua","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"support niveau 3","s":"IT","m":"Support / Helpdesk"},{"pn":"mise en service","s":"IT","m":"Général"},{"pn":"consulltant exploitation si","s":"IT","m":"Infrastructure"},{"pn":"ingenieur systeme senior","s":"IT","m":"Infrastructure"},{"pn":"architecte devops / cloud","s":"IT","m":"Cloud / DevOps"},{"pn":"ingenieur qualite projet","s":"Santé","m":"Santé"},{"pn":"developpeur fullstack","s":"IT","m":"Développement"},{"pn":"qa technico fonctionnelle","s":"IT","m":"Testeur"},{"pn":"technicien support","s":"IT","m":"Support / Helpdesk"},{"pn":"ops","s":"IT","m":"Cloud / DevOps"},{"pn":"packageur","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"lead dev php","s":"IT","m":"Développement"},{"pn":"data analyst","s":"IT","m":"Data / BI"},{"pn":"consultant moa","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"pfe gf54","s":"Engineering","m":"Tuyau"},{"pn":"pilote operationnel applicatif","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur outils qualite","s":"Santé","m":"Santé"},{"pn":"responsable achats","s":"IT","m":"Management"},{"pn":"moe integrateur","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"sales development representative","s":"IT","m":"Développement"},{"pn":"ingenieur hse","s":"Santé","m":"Santé"},{"pn":"chef de projet homologation","s":"IT","m":"Chef de projet"},{"pn":"responsable securite physique","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"poste d ordonnanceur","s":"IT","m":"Infrastructure"},{"pn":"developpeur senior","s":"IT","m":"Développement"},{"pn":"developpeur java","s":"IT","m":"Développement"},{"pn":"prestation commerciale","s":"IT","m":"Commercial"},{"pn":"integrateur soc","s":"CyberSécurité","m":"SOC"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"process engineer","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"consultant securite","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"concepteur developpeur c net","s":"IT","m":"Développement"},{"pn":"developpeur fullstack net/react","s":"IT","m":"Développement"},{"pn":"charge digital sur le module performance de la solution oracle hcm cloud","s":"IT","m":"Digital"},{"pn":"senior data analyst","s":"IT","m":"Data / BI"},{"pn":"experte cobol","s":"IT","m":"Développement"},{"pn":"chef de projet encaissement / it","s":"IT","m":"Chef de projet"},{"pn":"acheteuse directe","s":"IT","m":"Acheteur"},{"pn":"developpeur java spring","s":"IT","m":"Développement"},{"pn":"product analyst","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"product analyst","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"scrum master it","s":"IT","m":"Chef de projet"},{"pn":"devops aws engineer","s":"IT","m":"Cloud / DevOps"},{"pn":"chef de projets mes","s":"IT","m":"Chef de projet"},{"pn":"product designer","s":"Santé","m":"Santé"},{"pn":"developpeur fullstack net angular","s":"IT","m":"Développement"},{"pn":"developpeur mobile react native","s":"IT","m":"Développement"},{"pn":"consultant ingenieur systeme microsoft","s":"IT","m":"Infrastructure"},{"pn":"manager affaires reglementaires","s":"Santé","m":"Management"},{"pn":"test lead","s":"IT","m":"Testeur"},{"pn":"product engineer","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"chef de projet senior","s":"IT","m":"Chef de projet"},{"pn":"progress control engineer","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"developpeur react","s":"IT","m":"Développement"},{"pn":"project controls lead","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"project management office","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"responsable d applications altaix","s":"IT","m":"Management"},{"pn":"acheteur direct","s":"IT","m":"Acheteur"},{"pn":"analyste fonctionnel","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"projecteur pid","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"referent communication du programme lock","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur procede senior","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"analyste soc n2","s":"CyberSécurité","m":"SOC"},{"pn":"ingenieur systemes information expert microsoft","s":"IT","m":"Infrastructure"},{"pn":"developpeur angular senior","s":"IT","m":"Développement"},{"pn":"chef de projet nucleaire","s":"IT","m":"Chef de projet"},{"pn":"ingenieur process","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"responsable comptable fournisseur","s":"Finance","m":"Comptable"},{"pn":"renfort pole comptable","s":"Finance","m":"Comptable"},{"pn":"chef de projet vdr","s":"IT","m":"Chef de projet"},{"pn":"developpeur back end","s":"IT","m":"Développement"},{"pn":"chef de projet ingenierie","s":"Santé","m":"Chef de projet"},{"pn":"ingenieur d etudes et developpement","s":"IT","m":"Développement"},{"pn":"data analyst","s":"IT","m":"Data / BI"},{"pn":"assistance technique et fonctionnelle sur l application gestime","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"analyste data business","s":"IT","m":"Data / BI"},{"pn":"expert en securite informatique","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"lead data scientist","s":"IA","m":"Data / BI"},{"pn":"ingenieur projet expert technique","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"administrateur systeme et reseaux","s":"IT","m":"Télécom / Réseau"},{"pn":"consultant openstack / kubernetes","s":"IT","m":"Cloud / DevOps"},{"pn":"retoucheur tolier","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"developpeur web","s":"IT","m":"Digital"},{"pn":"senior business analyse","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"developpeur java","s":"IT","m":"Développement"},{"pn":"devops engineer","s":"IT","m":"Cloud / DevOps"},{"pn":"chef de projet support document supervision de production","s":"CyberSécurité","m":"Chef de projet"},{"pn":"senior dev salesforce","s":"IT","m":"SAP / ERP"},{"pn":"data analyst","s":"IT","m":"Data / BI"},{"pn":"data analyst","s":"IA","m":"Data / BI"},{"pn":"expert sap","s":"IT","m":"SAP / ERP"},{"pn":"pmo service now","s":"IT","m":"Chef de projet"},{"pn":"senior engineer","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"software engineer","s":"IT","m":"Développement"},{"pn":"solution expert encaissement","s":"Finance","m":"Fonctionnel / AMOA"},{"pn":"responsable de production applicative","s":"CyberSécurité","m":"Management"},{"pn":"stockiste","s":"Engineering","m":"Fonctionnel / AMOA"},{"pn":"expert sgbd dba etude","s":"IT","m":"Data / BI"},{"pn":"coordinatrice projet r d","s":"IT","m":"Chef de projet"},{"pn":"superviseur de chantier","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"ingenieur de production/devops","s":"CyberSécurité","m":"Cloud / DevOps"},{"pn":"consultante sustainability specialist emea","s":"Santé","m":"Santé"},{"pn":"expert reseau et securite","s":"CyberSécurité","m":"Télécom / Réseau"},{"pn":"developpeur sql / c","s":"IT","m":"Développement"},{"pn":"superviseur de travaux eia","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"responsable maintenabilite","s":"IT","m":"Management"},{"pn":"chef de projet","s":"IT","m":"Chef de projet"},{"pn":"data ingenieur","s":"IA","m":"Data / BI"},{"pn":"ingenieur systeme zos junior","s":"IT","m":"Infrastructure"},{"pn":"site manager","s":"IT","m":"Management"},{"pn":"technicien hotline support helpdesk n1","s":"IT","m":"Support / Helpdesk"},{"pn":"chef de projet deploiement responsable de production fibre","s":"CyberSécurité","m":"Chef de projet"},{"pn":"superviseur hse","s":"Engineering","m":"Tuyau"},{"pn":"superviseur piping projet galaxie / osbl","s":"Engineering","m":"Tuyau"},{"pn":"developpeur mobile android kmp senior","s":"IT","m":"Développement"},{"pn":"ingenieur delivery parametrage","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"superviseur travaux tuyauterie","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"it manager","s":"IT","m":"Management"},{"pn":"coordinatrice bim","s":"IT","m":"Chef de projet"},{"pn":"gestionnaire back office","s":"IT","m":"Développement"},{"pn":"specialiste affaires reglementaires dm real","s":"Santé","m":"Affaire reglementaire"},{"pn":"developpeur full stack","s":"IT","m":"Développement"},{"pn":"bim manager","s":"IT","m":"Management"},{"pn":"chef de projet it","s":"IT","m":"Chef de projet"},{"pn":"technicien support n1/n2","s":"IT","m":"Support / Helpdesk"},{"pn":"responsable cellule scheme compliance","s":"Finance","m":"Management"},{"pn":"developpeur experimente automatisation uipath","s":"IT","m":"Développement"},{"pn":"linux ops","s":"IT","m":"Infrastructure"},{"pn":"coordinateur electrotechnique intrumentation","s":"IT","m":"Chef de projet"},{"pn":"team leader","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"expert sap ewm","s":"IT","m":"SAP / ERP"},{"pn":"gestionnaire back office","s":"IT","m":"Développement"},{"pn":"ingenieur integration validation","s":"IT","m":"Testeur"},{"pn":"technicien cableur electronique","s":"Engineering","m":"Electronique"},{"pn":"product owner transerve","s":"IT","m":"Chef de projet"},{"pn":"product owner application mobile","s":"IT","m":"Chef de projet"},{"pn":"technicien cableur electronique r d","s":"Engineering","m":"Electronique"},{"pn":"technicien de mise en service","s":"Engineering","m":"Electronique"},{"pn":"chef de projet technique infra et obsolescence","s":"IT","m":"Chef de projet"},{"pn":"ingenieur qualite soutien","s":"Santé","m":"Santé"},{"pn":"java devops engineer","s":"IT","m":"Cloud / DevOps"},{"pn":"chef de projet seo","s":"IT","m":"Chef de projet"},{"pn":"consultante support fonctionnelle","s":"CyberSécurité","m":"Fonctionnel / AMOA"},{"pn":"technicien electricite electronique","s":"Engineering","m":"Electronique"},{"pn":"responsable services generaux","s":"IT","m":"Management"},{"pn":"data engineer","s":"IA","m":"Data / BI"},{"pn":"responsable maintenance de lignes","s":"IT","m":"Management"},{"pn":"ingenieur d exploitation linux","s":"IT","m":"Infrastructure"},{"pn":"business analyst","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"technicien electronique","s":"Engineering","m":"Electronique"},{"pn":"chef de projet salesforce","s":"IT","m":"Chef de projet"},{"pn":"consultant admin fonctionnel sap successfactors","s":"IT","m":"SAP / ERP"},{"pn":"developpeur android","s":"IT","m":"Développement"},{"pn":"ingenieur simulation mecanique thermique","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"supply chain projects leader","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur devops iaas","s":"IT","m":"Cloud / DevOps"},{"pn":"devops plateforme gitlab ci","s":"IT","m":"Cloud / DevOps"},{"pn":"data analyst geomarketing","s":"IA","m":"Data / BI"},{"pn":"ingenieur qualite projet","s":"Santé","m":"Santé"},{"pn":"technicien essais","s":"Engineering","m":"Electronique"},{"pn":"ingenieur specialise en electrolyse","s":"Engineering","m":"Matériaux /mécanique"},{"pn":"responsable supply chain","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"ingenieur logiciel c / net // developpement integration","s":"IT","m":"Développement"},{"pn":"ingenieure projet responsable interfaces","s":"IT","m":"Management"},{"pn":"gestionnaire back office","s":"IT","m":"Développement"},{"pn":"technicien it","s":"IT","m":"Support / Helpdesk"},{"pn":"technicien mesure physiques","s":"Engineering","m":"Support / Helpdesk"},{"pn":"technicien retrofit gbc","s":"IT","m":"Support / Helpdesk"},{"pn":"consultante assurance qualite","s":"Santé","m":"Santé"},{"pn":"responsable achats","s":"IT","m":"Management"},{"pn":"consultante experte cmc","s":"Santé","m":"Santé"},{"pn":"developpeur applicatif senior","s":"IT","m":"Développement"},{"pn":"ui designer","s":"IT","m":"Designer"},{"pn":"ingenieur de production","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"moe integrateur","s":"IT","m":"Fonctionnel / AMOA"},{"pn":"product owner","s":"IT","m":"Chef de projet"},{"pn":"concepteur / developpeur full stack senior","s":"IT","m":"Développement"},{"pn":"ingenieur e qa technico fonctionnel","s":"IT","m":"Testeur"},{"pn":"implementation lead monetique acceptation","s":"Finance","m":"Management"},{"pn":"responsable service client export","s":"Santé","m":"Management"},{"pn":"developpeur net angular","s":"IT","m":"Développement"},{"pn":"technicien support","s":"IT","m":"Support / Helpdesk"},{"pn":"cdp deploiement fibre optique","s":"IT","m":"Télécom / Réseau"},{"pn":"ux / ui designer","s":"IT","m":"Designer"},{"pn":"ingenieur deploiement erp","s":"IT","m":"SAP / ERP"},{"pn":"data software engineer","s":"IT","m":"Data / BI"},{"pn":"lead data scientist","s":"IA","m":"Data / BI"},{"pn":"ux designer","s":"IT","m":"Designer"},{"pn":"administrateur systeme","s":"IT","m":"Infrastructure"},{"pn":"technicienne helpdesk n1","s":"IT","m":"Support / Helpdesk"},{"pn":"technicien support","s":"IT","m":"Support / Helpdesk"},{"pn":"ingenieur d exploitation","s":"IT","m":"Infrastructure"},{"pn":"technicien support","s":"IT","m":"Support / Helpdesk"},{"pn":"workday consultant","s":"IT","m":"Workday"}];
@@ -2648,6 +2982,7 @@ function goToMatching() {
   const crmEntries = Object.values(crmByKey);
 
   // ---- SWILE MAP ----
+  const swileMultiplier = parseFloat(document.getElementById('swile-multiplier')?.value || '1') || 1;
   const swileMap = {};
   if(fileData.swile) {
     const iSWN=getIdx('map-swile-nom'), iSWP=getIdx('map-swile-prenom'), iSWC=getIdx('map-swile-cout');
@@ -2656,7 +2991,7 @@ function goToMatching() {
         const n=String(r[iSWN]||'').trim();
         const p=iSWP>=0&&r[iSWP]?String(r[iSWP]||'').trim():'';
         if(!n) return;
-        const montant = parseAmt(r[iSWC]);
+        const montant = parseAmt(r[iSWC]) * swileMultiplier;
         buildExtraKeys(n, p).forEach(k => { swileMap[k]=(swileMap[k]||0)+montant; });
       });
     }
@@ -2820,11 +3155,12 @@ function goToMatching() {
   }
   if(fileData.swile) {
     const _iSWN = getIdx('map-swile-nom'), _iSWP = getIdx('map-swile-prenom'), _iSWC = getIdx('map-swile-cout');
+    const swileMultiplier = parseFloat(document.getElementById('swile-multiplier')?.value || '1') || 1;
     if(_iSWN >= 0 && _iSWC >= 0) {
       fileData.swile.rows.forEach(r => {
         const nom = String(r[_iSWN]||'').trim();
         const prenom = _iSWP>=0 ? String(r[_iSWP]||'').trim() : '';
-        if(isLikelyName(nom, prenom)) rawTotalSwile += parseAmt(r[_iSWC]);
+        if(isLikelyName(nom, prenom)) rawTotalSwile += parseAmt(r[_iSWC]) * swileMultiplier;
       });
     }
   }
@@ -3197,7 +3533,7 @@ function saveToHistory() {
 }
 
 // Auto-init OneDrive au chargement
-if(document.readyState === "loading") { document.addEventListener("DOMContentLoaded", odInit); } else { odInit(); }
+if(document.readyState === "loading") { document.addEventListener("DOMContentLoaded", function(){ odInit(); tkUpdateBadge(); }); } else { odInit(); tkUpdateBadge(); }
 
 function renderHistory() {
   let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
@@ -3529,7 +3865,21 @@ function renderSuivi() {
         style="width:16px;height:16px;cursor:pointer;accent-color:#7343EE"
         onchange="suiviToggleCp('${norm(nom).replace(/'/g,"\'")}',this.checked)">
     </td>`;
-    row += `<td style="background:var(--surface2);padding:4px 8px">
+    row += `<td style="background:var(--surface2);padding:4px 8px;text-align:center">
+      <button onclick="tacheNewFromSuivi('${norm(nom).replace(/'/g,"\'")}','${nom.replace(/'/g,"\'")}',event)"
+        title="Nouvelle tâche pour ce consultant"
+        style="border:none;background:var(--brand-soft);color:var(--brand);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap">
+        + Tâche
+      </button>
+    </td>`;
+        row += `<td style="background:var(--surface2);padding:4px 8px;text-align:center">
+      <button onclick="tacheNewFromSuivi('${norm(nom).replace(/'/g, String.fromCharCode(92)+String.fromCharCode(39))}','${nom.replace(/'/g, String.fromCharCode(92)+String.fromCharCode(39))}',event)"
+        title="Nouvelle tâche"
+        style="border:none;background:var(--brand-soft);color:var(--brand);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-weight:600">
+        + Tâche
+      </button>
+    </td>`;
+row += `<td style="background:var(--surface2);padding:4px 8px">
       <div style="display:flex;align-items:center;gap:6px">
         <input type="text" value="${comment.replace(/"/g,'&quot;')}" placeholder="Ajouter une note…"
           style="flex:1;min-width:120px;padding:3px 7px;font-size:11px;border:0.5px solid var(--border2);border-radius:4px;background:var(--surface)"
@@ -4856,6 +5206,7 @@ function pilDrawCharts(monthly, months, objM, entrants, sortants, cmap, MFS){
     ?`<span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:${sc[i]};display:inline-block"></span>${l} ${sv[i]}</span>`:''
   ).filter(Boolean).join('');
 }
+
 
 </script>
 
