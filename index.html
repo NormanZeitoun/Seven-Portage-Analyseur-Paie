@@ -1554,7 +1554,7 @@ function checkReady() {
     document.getElementById('swile-mapping-group').style.display = 'block';
     fillSel('map-swile-nom', fileData.swile.headers, ['nom']);
     fillSel('map-swile-prenom', fileData.swile.headers, ['prénom','prenom']);
-    fillSel('map-swile-cout', fileData.swile.headers, ['montant','swile','ticket','solde','total','coût']);
+    fillSel('map-swile-cout', fileData.swile.headers, ['montant ','montant','solde','total','coût','ticket','swile']);
   }
   if(fileData.avantages) {
     document.getElementById('avantages-mapping-group').style.display = 'block';
@@ -1636,13 +1636,16 @@ function fillSel(id, headers, hints) {
   const sel = document.getElementById(id);
   const norm2 = s => s.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   // Trouver le meilleur index AVANT de construire le HTML
+  // Score : exact=1000, partial=(hints.length - position du hint) pour prioriser les premiers hints
   let bestIdx = -1, bestScore = -1;
   headers.forEach((h,i) => {
     const lower = norm2(h);
     for(let hi=0; hi<hints.length; hi++) {
       const hint = norm2(hints[hi]);
-      if(lower === hint && bestScore < 2) { bestIdx=i; bestScore=2; break; }
-      if(lower.includes(hint) && bestScore < 1) { bestIdx=i; bestScore=1; }
+      const exactScore = 1000 - hi;
+      const partialScore = (hints.length - hi);
+      if(lower === hint && exactScore > bestScore) { bestIdx=i; bestScore=exactScore; break; }
+      if(lower.includes(hint) && partialScore > bestScore) { bestIdx=i; bestScore=partialScore; }
     }
   });
   // Construire le HTML avec selected sur la bonne option
