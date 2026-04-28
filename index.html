@@ -3360,10 +3360,25 @@ function exportCSV() {
 
 // ======== SUIVI ANNUEL ========
 function renderSuivi() {
-  const year = document.getElementById('suivi-year').value;
+  const activeFilter = window._suiviFilter || 'all';
+  const isGlissant = activeFilter === 'glissant6' || activeFilter === 'glissant12';
+
   let h = []; try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) {}
-  const yearData = h.filter(d => d.year === year)
-                    .sort((a,b) => a.month.localeCompare(b.month));
+  h = h.slice().sort((a,b) => (b.year+b.month).localeCompare(a.year+a.month));
+
+  let yearData, year;
+  if(isGlissant) {
+    const n = activeFilter === 'glissant6' ? 6 : 12;
+    yearData = h.slice(0, n).sort((a,b) => (a.year+a.month).localeCompare(b.year+b.month));
+    year = yearData.length ? yearData[0].year + '–' + yearData[yearData.length-1].year : '—';
+    const yg = document.getElementById('suivi-year-group');
+    if(yg) yg.style.display = 'none';
+  } else {
+    year = document.getElementById('suivi-year').value;
+    yearData = h.filter(d => d.year === year).sort((a,b) => a.month.localeCompare(b.month));
+    const yg = document.getElementById('suivi-year-group');
+    if(yg) yg.style.display = '';
+  }
 
   const empty = document.getElementById('suivi-empty');
   const content = document.getElementById('suivi-content');
@@ -3398,7 +3413,6 @@ function renderSuivi() {
   }
 
   // Appliquer le filtre statut
-  const activeFilter = window._suiviFilter || 'all';
   let allConsultants = Object.keys(consultantMap).sort();
   const consultants = activeFilter === 'all' || isGlissant
     ? allConsultants
