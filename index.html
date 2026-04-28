@@ -3428,12 +3428,16 @@ function renderSuivi() {
     if(d.rawTotalCout > 0) {
       const sw = d.rawTotalSwile    > 0 ? d.rawTotalSwile    : d.results.filter(r=>r.type==='matched').reduce((s,r)=>s+(r.swile||0),0);
       const av = d.rawTotalAvantages > 0 ? d.rawTotalAvantages : d.results.filter(r=>r.type==='matched').reduce((s,r)=>s+(r.avantages||0),0);
-      totalCout += d.rawTotalCout + sw + av;
+      const moisCout = d.rawTotalCout + sw + av;
+      console.log('[COUT] mois='+d.month+' rawCout='+Math.round(d.rawTotalCout)+' sw='+Math.round(sw)+' av='+Math.round(av)+' total='+Math.round(moisCout));
+      totalCout += moisCout;
     } else {
-      totalCout += d.results.reduce((s,r)=>{
+      const fallback = d.results.reduce((s,r)=>{
         if(r.type==='matched'||r.type==='orphan_synth'||r.type==='bp_zero') return s+r.coutTotal;
         return s;
       },0);
+      console.log('[COUT FALLBACK] mois='+d.month+' fallback='+Math.round(fallback));
+      totalCout += fallback;
     }
     totalFact  += totalCaMois(d);
     d.results.filter(r=>r.type==='matched').forEach(r => {
