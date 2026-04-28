@@ -1209,7 +1209,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 .ax-section{margin-bottom:1.5rem}
 .ax-section-title{font-size:13px;font-weight:500;margin-bottom:10px;display:flex;align-items:center;gap:8px}
 .ax-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
-.ax-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow-xs)}
+.ax-card{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:16px 18px;box-shadow:0 2px 8px rgba(0,0,0,.08);transition:box-shadow .15s}.ax-card:hover{box-shadow:0 4px 16px rgba(115,67,238,.14)}
 .ax-card.urgent{border-left:3px solid #E24B4A;border-radius:0 12px 12px 0}
 .ax-card.warning{border-left:3px solid #EF9F27;border-radius:0 12px 12px 0}
 .ax-card.ok{border-left:3px solid #1D9E75;border-radius:0 12px 12px 0}
@@ -1242,7 +1242,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
   <p>Aucune donnée disponible pour cette année.</p>
 </div>
 
-<div id="ax-content">
+<div id="ax-content" style="background:var(--bg);border-radius:var(--radius);padding:4px">
   <!-- Alertes prioritaires -->
   <div class="ax-section">
     <div class="ax-section-title">
@@ -3425,9 +3425,16 @@ function renderSuivi() {
   // ---- Métriques globales ----
   let totalCout=0, totalFact=0, totalMarge=0;
   yearData.forEach(d => {
-    const swileMois     = d.rawTotalSwile    > 0 ? d.rawTotalSwile    : d.results.filter(r=>r.type==='matched').reduce((s,r)=>s+(r.swile||0),0);
-    const avantagesMois = d.rawTotalAvantages > 0 ? d.rawTotalAvantages : d.results.filter(r=>r.type==='matched').reduce((s,r)=>s+(r.avantages||0),0);
-    totalCout  += totalCoutMois(d) + swileMois + avantagesMois;
+    if(d.rawTotalCout > 0) {
+      const sw = d.rawTotalSwile    > 0 ? d.rawTotalSwile    : d.results.filter(r=>r.type==='matched').reduce((s,r)=>s+(r.swile||0),0);
+      const av = d.rawTotalAvantages > 0 ? d.rawTotalAvantages : d.results.filter(r=>r.type==='matched').reduce((s,r)=>s+(r.avantages||0),0);
+      totalCout += d.rawTotalCout + sw + av;
+    } else {
+      totalCout += d.results.reduce((s,r)=>{
+        if(r.type==='matched'||r.type==='orphan_synth'||r.type==='bp_zero') return s+r.coutTotal;
+        return s;
+      },0);
+    }
     totalFact  += totalCaMois(d);
     d.results.filter(r=>r.type==='matched').forEach(r => {
       totalMarge += r.margeEur;
