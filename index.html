@@ -727,18 +727,18 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 <style>
 .cl-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px}
 .cl-params{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.cl-params select,.cl-params input{padding:5px 10px;border:0.5px solid var(--color-border-secondary);border-radius:6px;font-size:12px;background:var(--color-background-primary);color:var(--color-text-primary)}
+.cl-params select,.cl-params input{padding:5px 10px;border:0.5px solid var(--border2);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text)}
 .cl-tabs{display:flex;gap:6px;margin-bottom:1.25rem;flex-wrap:wrap}
-.cl-tab{padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:0.5px solid var(--color-border-secondary);background:none;color:var(--color-text-secondary);transition:all .15s}
+.cl-tab{padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:0.5px solid var(--border2);background:none;color:var(--text2);transition:all .15s}
 .cl-tab.active{background:#7343EE;color:#fff;border-color:#7343EE}
 .cl-section{display:none}.cl-section.active{display:block}
-.cl-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:12px;padding:16px;margin-bottom:1rem}
+.cl-card{background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:16px;margin-bottom:1rem}
 .cl-card-title{font-size:13px;font-weight:500;margin-bottom:12px}
 .cl-tbl{width:100%;border-collapse:collapse;font-size:12px}
-.cl-tbl th{font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.04em;padding:7px 10px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:left;background:var(--color-background-secondary)}
-.cl-tbl td{padding:8px 10px;border-bottom:0.5px solid var(--color-border-tertiary);vertical-align:middle}
+.cl-tbl th{font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;padding:7px 10px;border-bottom:0.5px solid var(--border);text-align:left;background:var(--surface2)}
+.cl-tbl td{padding:8px 10px;border-bottom:0.5px solid var(--border);vertical-align:middle}
 .cl-tbl tr:last-child td{border-bottom:none}
-.cl-tbl tr:hover td{background:var(--color-background-secondary)}
+.cl-tbl tr:hover td{background:var(--surface2)}
 .cl-bar{display:inline-block;height:6px;border-radius:3px;vertical-align:middle;margin-left:6px}
 .cl-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:500}
 .cl-bred{background:#FCEBEB;color:#A32D2D}.cl-bamb{background:#FAEEDA;color:#633806}
@@ -746,22 +746,22 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 .cl-bpur{background:#EEEDFE;color:#3C3489}
 .cl-warn{background:#FAEEDA;border:0.5px solid #FAC775;color:#633806;border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:1rem}
 .cl-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.cl-delta-pos{color:#1D9E75;font-weight:500}.cl-delta-neg{color:#D63B3B;font-weight:500}.cl-delta-neu{color:var(--color-text-secondary)}
+.cl-delta-pos{color:#1D9E75;font-weight:500}.cl-delta-neg{color:#D63B3B;font-weight:500}.cl-delta-neu{color:var(--text2)}
 </style>
 
 <div class="cl-top">
   <div>
     <div style="font-size:18px;font-weight:500">Analyse Client</div>
-    <div style="font-size:12px;color:var(--color-text-secondary);margin-top:2px" id="cl-subtitle">—</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:2px" id="cl-subtitle">—</div>
   </div>
   <div class="cl-params">
-    <div style="display:flex;gap:4px;background:var(--color-background-secondary);border-radius:8px;padding:3px">
+    <div style="display:flex;gap:4px;background:var(--surface2);border-radius:8px;padding:3px">
       <button id="cl-mode-global" onclick="clSetMode('global')"
         style="padding:4px 14px;border-radius:6px;border:none;font-size:12px;cursor:pointer;background:#7343EE;color:#fff;font-weight:500">
         🌍 Analyse Globale
       </button>
       <button id="cl-mode-annee" onclick="clSetMode('annee')"
-        style="padding:4px 14px;border-radius:6px;border:none;font-size:12px;cursor:pointer;background:none;color:var(--color-text-secondary)">
+        style="padding:4px 14px;border-radius:6px;border:none;font-size:12px;cursor:pointer;background:none;color:var(--text2)">
         📅 Par Année
       </button>
     </div>
@@ -769,7 +769,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
       <select id="cl-year1" onchange="renderClient()">
         <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
       </select>
-      <span style="font-size:12px;color:var(--color-text-secondary)">vs</span>
+      <span style="font-size:12px;color:var(--text2)">vs</span>
       <select id="cl-year2" onchange="renderClient()">
         <option value="">— pas de comparaison —</option>
         <option value="2024">2024</option><option value="2025" selected>2025</option><option value="2026">2026</option>
@@ -778,7 +778,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
   </div>
 </div>
 
-<div id="cl-nodata" style="text-align:center;padding:3rem;color:var(--color-text-secondary);display:none">
+<div id="cl-nodata" style="text-align:center;padding:3rem;color:var(--text2);display:none">
   <div style="font-size:32px;opacity:.4;margin-bottom:12px">🏢</div>
   <p>Aucune donnée client disponible.<br>Mappe les colonnes Client / Commercial / Métier à l'import.</p>
 </div>
@@ -808,13 +808,13 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
     </div>
     <!-- Top 5 clients avec meilleure marge (min 3 portés) -->
     <div class="cl-card" style="margin-bottom:1rem">
-      <div class="cl-card-title">Top 5 — Meilleure marge <span style="font-size:11px;font-weight:400;color:var(--color-text-secondary)">(min. 3 consultants)</span></div>
+      <div class="cl-card-title">Top 5 — Meilleure marge <span style="font-size:11px;font-weight:400;color:var(--text2)">(min. 3 consultants)</span></div>
       <div id="cl-top5-marge" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:8px"></div>
     </div>
     <div class="cl-card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div class="cl-card-title" style="margin-bottom:0">Détail par client</div>
-        <button onclick="clToggleAllClients(this)" style="font-size:11px;padding:3px 10px;border:0.5px solid var(--color-border-secondary);border-radius:6px;background:none;cursor:pointer;color:var(--color-text-secondary)">▼ Voir tout</button>
+        <button onclick="clToggleAllClients(this)" style="font-size:11px;padding:3px 10px;border:0.5px solid var(--border2);border-radius:6px;background:none;cursor:pointer;color:var(--text2)">▼ Voir tout</button>
       </div>
       <div style="overflow-x:auto"><table class="cl-tbl" id="cl-tbl-clients"></table></div>
     </div>
@@ -841,7 +841,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div class="cl-card-title" style="margin-bottom:0" id="cl-secteur-detail-title">Métiers dans ce secteur</div>
         <button onclick="document.getElementById('cl-secteur-detail-card').style.display='none'"
-          style="font-size:11px;padding:2px 8px;border:0.5px solid var(--color-border-secondary);border-radius:6px;background:none;cursor:pointer">✕</button>
+          style="font-size:11px;padding:2px 8px;border:0.5px solid var(--border2);border-radius:6px;background:none;cursor:pointer">✕</button>
       </div>
       <div style="overflow-x:auto"><table class="cl-tbl" id="cl-tbl-secteur-detail"></table></div>
     </div>
@@ -875,7 +875,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
       <div class="cl-card" style="margin-bottom:0">
         <div class="cl-card-title">Répartition des portés par métier</div>
         <div style="position:relative;height:220px"><canvas id="cl-ch-metier-portes" role="img" aria-label="Portés par métier">Graphique</canvas></div>
-        <div id="cl-metier-legend" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:11px;color:var(--color-text-secondary)"></div>
+        <div id="cl-metier-legend" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:11px;color:var(--text2)"></div>
       </div>
     </div>
     <div class="cl-card">
@@ -889,9 +889,9 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
     <div class="cl-grid2" style="margin-bottom:1rem">
       <div class="cl-card" style="margin-bottom:0">
         <div class="cl-card-title">Répartition par tranche de brut</div>
-        <div class="cl-card-sub" style="font-size:11px;color:var(--color-text-secondary);margin-bottom:8px">0–4 900 € · 4 901–10 000 € · + 10 000 €</div>
+        <div class="cl-card-sub" style="font-size:11px;color:var(--text2);margin-bottom:8px">0–4 900 € · 4 901–10 000 € · + 10 000 €</div>
         <div style="position:relative;height:200px"><canvas id="cl-ch-charges-tranches" role="img" aria-label="Charges par tranche brut">Graphique</canvas></div>
-        <div id="cl-ch-charges-tranches-legend" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:11px;color:var(--color-text-secondary)"></div>
+        <div id="cl-ch-charges-tranches-legend" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:11px;color:var(--text2)"></div>
       </div>
       <div class="cl-card" style="margin-bottom:0">
         <div class="cl-card-title">% charges moyen par tranche</div>
@@ -912,7 +912,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
       <div class="cl-card">
         <div class="cl-card-title">Évolution mensuelle du nombre de portés facturés par commercial</div>
         <div style="position:relative;height:240px"><canvas id="cl-ch-comp-portes" role="img" aria-label="Portés par commercial et par mois">Graphique</canvas></div>
-        <div id="cl-comp-legend" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:11px;color:var(--color-text-secondary)"></div>
+        <div id="cl-comp-legend" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:11px;color:var(--text2)"></div>
       </div>
       <div class="cl-card">
         <div class="cl-card-title">Comparatif client — N vs N-1</div>
@@ -926,50 +926,50 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 <div id="tab-referentiel" class="tab-pane">
 <style>
 .ref-tbl{width:100%;border-collapse:collapse;font-size:12px}
-.ref-tbl th{font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.04em;padding:7px 10px;border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);position:sticky;top:0}
-.ref-tbl td{padding:7px 10px;border-bottom:0.5px solid var(--color-border-tertiary);vertical-align:middle}
-.ref-tbl tr:hover td{background:var(--color-background-secondary)}
+.ref-tbl th{font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;padding:7px 10px;border-bottom:0.5px solid var(--border);background:var(--surface2);position:sticky;top:0}
+.ref-tbl td{padding:7px 10px;border-bottom:0.5px solid var(--border);vertical-align:middle}
+.ref-tbl tr:hover td{background:var(--surface2)}
 .ref-badge{display:inline-flex;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:500}
-.ref-search{padding:7px 12px;border:0.5px solid var(--color-border-secondary);border-radius:8px;font-size:13px;width:280px;background:var(--color-background-primary);color:var(--color-text-primary)}
+.ref-search{padding:7px 12px;border:0.5px solid var(--border2);border-radius:8px;font-size:13px;width:280px;background:var(--surface);color:var(--text)}
 </style>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px">
     <div>
       <div style="font-size:18px;font-weight:500">📚 Référentiel Métiers</div>
-      <div style="font-size:12px;color:var(--color-text-secondary);margin-top:2px" id="ref-subtitle">Chargement…</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px" id="ref-subtitle">Chargement…</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <input class="ref-search" type="text" id="ref-search" placeholder="Rechercher un poste, secteur, métier…" oninput="renderRef()">
-      <select id="ref-filter-secteur" onchange="renderRef()" style="padding:7px 10px;border:0.5px solid var(--color-border-secondary);border-radius:8px;font-size:12px;background:var(--color-background-primary);color:var(--color-text-primary)">
+      <select id="ref-filter-secteur" onchange="renderRef()" style="padding:7px 10px;border:0.5px solid var(--border2);border-radius:8px;font-size:12px;background:var(--surface);color:var(--text)">
         <option value="">Tous les secteurs</option>
       </select>
       <button onclick="showAddRef()" style="padding:6px 14px;background:#7343EE;color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:500">+ Ajouter</button>
       <button onclick="showRefAClasser()" id="ref-btn-aclasser" style="padding:6px 14px;border:0.5px solid #FAC775;border-radius:8px;font-size:12px;cursor:pointer;background:#FAEEDA;color:#633806;font-weight:500">⚠ À classer <span id="ref-aclasser-badge"></span></button>
-      <button onclick="exportRef()" style="padding:6px 14px;border:0.5px solid var(--color-border-secondary);border-radius:8px;font-size:12px;cursor:pointer;background:none;color:var(--color-text-primary)">⬇ Export</button>
+      <button onclick="exportRef()" style="padding:6px 14px;border:0.5px solid var(--border2);border-radius:8px;font-size:12px;cursor:pointer;background:none;color:var(--text)">⬇ Export</button>
     </div>
   </div>
 
   <!-- Formulaire ajout/édition -->
-  <div id="ref-form" style="display:none;background:var(--color-background-secondary);border-radius:12px;padding:16px;margin-bottom:1rem;border:0.5px solid var(--color-border-tertiary)">
+  <div id="ref-form" style="display:none;background:var(--surface2);border-radius:12px;padding:16px;margin-bottom:1rem;border:0.5px solid var(--border)">
     <div style="font-size:13px;font-weight:500;margin-bottom:12px" id="ref-form-title">Ajouter un poste</div>
     <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:end">
       <div>
-        <label style="font-size:11px;color:var(--color-text-secondary);display:block;margin-bottom:4px">Intitulé de poste</label>
-        <input id="ref-inp-poste" type="text" placeholder="ex: Développeur React Senior" style="width:100%;padding:7px 10px;border:0.5px solid var(--color-border-secondary);border-radius:6px;font-size:12px;background:var(--color-background-primary);color:var(--color-text-primary);box-sizing:border-box">
+        <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Intitulé de poste</label>
+        <input id="ref-inp-poste" type="text" placeholder="ex: Développeur React Senior" style="width:100%;padding:7px 10px;border:0.5px solid var(--border2);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);box-sizing:border-box">
       </div>
       <div>
-        <label style="font-size:11px;color:var(--color-text-secondary);display:block;margin-bottom:4px">Secteur</label>
-        <select id="ref-inp-secteur" style="width:100%;padding:7px 10px;border:0.5px solid var(--color-border-secondary);border-radius:6px;font-size:12px;background:var(--color-background-primary);color:var(--color-text-primary)">
+        <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Secteur</label>
+        <select id="ref-inp-secteur" style="width:100%;padding:7px 10px;border:0.5px solid var(--border2);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text)">
           <option>IT</option><option>CyberSécurité</option><option>IA</option><option>Santé</option>
           <option>Finance</option><option>Engineering</option><option>Management de transition</option><option>Formateur</option><option>Autres</option>
         </select>
       </div>
       <div>
-        <label style="font-size:11px;color:var(--color-text-secondary);display:block;margin-bottom:4px">Métier</label>
-        <input id="ref-inp-metier" type="text" placeholder="ex: Développement" style="width:100%;padding:7px 10px;border:0.5px solid var(--color-border-secondary);border-radius:6px;font-size:12px;background:var(--color-background-primary);color:var(--color-text-primary);box-sizing:border-box">
+        <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Métier</label>
+        <input id="ref-inp-metier" type="text" placeholder="ex: Développement" style="width:100%;padding:7px 10px;border:0.5px solid var(--border2);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);box-sizing:border-box">
       </div>
       <div style="display:flex;gap:6px">
         <button onclick="saveRef()" style="padding:7px 14px;background:#7343EE;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer">Sauvegarder</button>
-        <button onclick="document.getElementById('ref-form').style.display='none'" style="padding:7px 10px;border:0.5px solid var(--color-border-secondary);border-radius:6px;font-size:12px;cursor:pointer;background:none;color:var(--color-text-primary)">Annuler</button>
+        <button onclick="document.getElementById('ref-form').style.display='none'" style="padding:7px 10px;border:0.5px solid var(--border2);border-radius:6px;font-size:12px;cursor:pointer;background:none;color:var(--text)">Annuler</button>
       </div>
     </div>
   </div>
@@ -982,14 +982,14 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div>
         <span style="font-size:13px;font-weight:600">⚠ Postes à classer</span>
-        <span id="ref-aclasser-count" style="font-size:11px;color:var(--color-text-secondary);margin-left:8px"></span>
+        <span id="ref-aclasser-count" style="font-size:11px;color:var(--text2);margin-left:8px"></span>
       </div>
       <div style="display:flex;gap:6px">
         <button onclick="refSaveAllClassements()" style="padding:5px 14px;background:#7343EE;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500">✓ Tout sauvegarder</button>
-        <button onclick="document.getElementById('ref-aclasser-section').style.display='none'" style="padding:5px 10px;border:0.5px solid var(--color-border-secondary);border-radius:6px;font-size:12px;cursor:pointer;background:none">✕</button>
+        <button onclick="document.getElementById('ref-aclasser-section').style.display='none'" style="padding:5px 10px;border:0.5px solid var(--border2);border-radius:6px;font-size:12px;cursor:pointer;background:none">✕</button>
       </div>
     </div>
-    <div style="background:var(--color-background-primary);border:0.5px solid #FAC775;border-radius:12px;overflow:hidden">
+    <div style="background:var(--surface);border:0.5px solid #FAC775;border-radius:12px;overflow:hidden">
       <div style="overflow-x:auto;max-height:500px;overflow-y:auto">
         <table class="ref-tbl" id="ref-tbl-aclasser">
           <thead><tr>
@@ -1006,7 +1006,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
   </div>
 
   <!-- Tableau principal -->
-  <div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:12px;overflow:hidden">
+  <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:12px;overflow:hidden">
     <div style="overflow-x:auto;max-height:600px;overflow-y:auto">
       <table class="ref-tbl" id="ref-tbl"></table>
     </div>
@@ -1113,19 +1113,19 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 <!-- ======== TAB PILOTAGE ======== -->
 <div id="tab-pilotage" class="tab-pane">
 <style>
-.pil-params{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;background:var(--color-background-secondary);border-radius:8px;padding:12px 14px;margin-bottom:1.25rem}
+.pil-params{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;background:var(--surface2);border-radius:8px;padding:12px 14px;margin-bottom:1.25rem}
 .pil-pf{display:flex;flex-direction:column;gap:4px}
-.pil-pf label{font-size:11px;color:var(--color-text-secondary);font-weight:500;letter-spacing:.03em;text-transform:uppercase}
-.pil-pf input,.pil-pf select{padding:5px 8px;border:0.5px solid var(--color-border-secondary);border-radius:6px;font-size:12px;background:var(--color-background-primary);color:var(--color-text-primary);width:110px}
-.pil-kpi{background:var(--color-background-secondary);border-radius:8px;padding:13px 15px}
-.pil-kpi-lbl{font-size:12px;color:var(--color-text-secondary);margin-bottom:4px}
+.pil-pf label{font-size:11px;color:var(--text2);font-weight:500;letter-spacing:.03em;text-transform:uppercase}
+.pil-pf input,.pil-pf select{padding:5px 8px;border:0.5px solid var(--border2);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);width:110px}
+.pil-kpi{background:var(--surface2);border-radius:8px;padding:13px 15px}
+.pil-kpi-lbl{font-size:12px;color:var(--text2);margin-bottom:4px}
 .pil-kpi-val{font-size:22px;font-weight:500;line-height:1.1}
 .pil-kpi-sub{font-size:11px;margin-top:3px}
 .pil-trend{display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:2px 7px;border-radius:4px;margin-top:4px;font-weight:500}
 .pil-up{background:#E1F5EE;color:#085041}.pil-dn{background:#FCEBEB;color:#791F1F}.pil-fl{background:#F1EFE8;color:#444441}
-.pil-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:12px;padding:16px}
+.pil-card{background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:16px}
 .pil-card-title{font-size:13px;font-weight:500;margin-bottom:4px}
-.pil-card-sub{font-size:11px;color:var(--color-text-secondary);margin-bottom:12px}
+.pil-card-sub{font-size:11px;color:var(--text2);margin-bottom:12px}
 .pil-alert-row{background:#FCEBEB;border:0.5px solid #F09595;border-radius:8px;padding:10px 14px;margin-bottom:7px;display:flex;align-items:flex-start;gap:10px}
 .pil-adot{width:8px;height:8px;border-radius:50%;background:#E24B4A;flex-shrink:0;margin-top:3px}
 .pil-aname{font-size:13px;font-weight:500;color:#501313}
@@ -1137,9 +1137,9 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px">
     <div>
       <div style="font-size:18px;font-weight:500">Tableau de bord · Pilotage</div>
-      <div style="font-size:12px;color:var(--color-text-secondary);margin-top:2px" id="pil-subtitle">—</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px" id="pil-subtitle">—</div>
     </div>
-    <select id="pil-year" onchange="buildDashboard()" style="padding:6px 10px;border:0.5px solid var(--color-border-secondary);border-radius:6px;font-size:13px">
+    <select id="pil-year" onchange="buildDashboard()" style="padding:6px 10px;border:0.5px solid var(--border2);border-radius:6px;font-size:13px">
       <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
     </select>
   </div>
@@ -1183,7 +1183,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
       <div class="pil-card-title">Répartition des statuts</div>
       <div class="pil-card-sub">Sur l'ensemble de l'année</div>
       <div style="position:relative;height:160px"><canvas id="pil-ch-stat" role="img" aria-label="Répartition statuts">Graphique</canvas></div>
-      <div id="pil-stat-legend" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:11px;color:var(--color-text-secondary)"></div>
+      <div id="pil-stat-legend" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:11px;color:var(--text2)"></div>
     </div>
     <div class="pil-card">
       <div class="pil-card-title">Projection fin d'année</div>
@@ -1193,9 +1193,9 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
   </div>
 
   <!-- Décrochage : onglet replié -->
-  <details style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:12px;overflow:hidden">
-    <summary style="padding:12px 16px;cursor:pointer;font-size:13px;font-weight:500;background:var(--color-background-secondary);user-select:none">
-      Consultants en décrochage <span id="pil-decro-count" style="font-size:11px;font-weight:400;color:var(--color-text-secondary)"></span>
+  <details style="background:var(--surface);border:0.5px solid var(--border);border-radius:12px;overflow:hidden">
+    <summary style="padding:12px 16px;cursor:pointer;font-size:13px;font-weight:500;background:var(--surface2);user-select:none">
+      Consultants en décrochage <span id="pil-decro-count" style="font-size:11px;font-weight:400;color:var(--text2)"></span>
     </summary>
     <div style="padding:12px 16px" id="pil-alertes"></div>
   </details>
@@ -1209,7 +1209,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 .ax-section{margin-bottom:1.5rem}
 .ax-section-title{font-size:13px;font-weight:500;margin-bottom:10px;display:flex;align-items:center;gap:8px}
 .ax-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
-.ax-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:12px;padding:14px 16px}
+.ax-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow-xs)}
 .ax-card.urgent{border-left:3px solid #E24B4A;border-radius:0 12px 12px 0}
 .ax-card.warning{border-left:3px solid #EF9F27;border-radius:0 12px 12px 0}
 .ax-card.ok{border-left:3px solid #1D9E75;border-radius:0 12px 12px 0}
@@ -1221,18 +1221,18 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 .ax-pill-amber{background:#FAEEDA;color:#633806}
 .ax-pill-green{background:#E1F5EE;color:#085041}
 .ax-pill-blue{background:#E6F1FB;color:#185FA5}
-.ax-card-body{font-size:12px;color:var(--color-text-secondary);line-height:1.5}
-.ax-card-action{margin-top:8px;font-size:12px;color:var(--color-text-primary);font-weight:500;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary)}
+.ax-card-body{font-size:12px;color:var(--text2);line-height:1.5}
+.ax-card-action{margin-top:8px;font-size:12px;color:var(--text);font-weight:500;padding-top:8px;border-top:0.5px solid var(--border)}
 .ax-stat{font-size:18px;font-weight:500;margin:4px 0}
-.ax-empty{text-align:center;padding:3rem;color:var(--color-text-secondary);font-size:13px}
+.ax-empty{text-align:center;padding:3rem;color:var(--text2);font-size:13px}
 </style>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px">
   <div>
     <div style="font-size:18px;font-weight:500">Axes d'amélioration</div>
-    <div style="font-size:12px;color:var(--color-text-secondary);margin-top:2px" id="ax-subtitle">Analyse automatique basée sur l'historique</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:2px" id="ax-subtitle">Analyse automatique basée sur l'historique</div>
   </div>
-  <select id="ax-year" onchange="renderAxes()" style="padding:6px 10px;border:0.5px solid var(--color-border-secondary);border-radius:6px;font-size:13px">
+  <select id="ax-year" onchange="renderAxes()" style="padding:6px 10px;border:0.5px solid var(--border2);border-radius:6px;font-size:13px">
     <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
   </select>
 </div>
@@ -2085,11 +2085,11 @@ function clSetMode(mode) {
   const ys   = document.getElementById('cl-year-selects');
   if(mode==='global') {
     btnG.style.background='#7343EE'; btnG.style.color='#fff';
-    btnA.style.background='none'; btnA.style.color='var(--color-text-secondary)';
+    btnA.style.background='none'; btnA.style.color='var(--text2)';
     ys.style.display='none';
   } else {
     btnA.style.background='#7343EE'; btnA.style.color='#fff';
-    btnG.style.background='none'; btnG.style.color='var(--color-text-secondary)';
+    btnG.style.background='none'; btnG.style.color='var(--text2)';
     ys.style.display='flex';
   }
   renderClient();
@@ -2198,14 +2198,14 @@ function renderClientSecteurs(yd1) {
           ${s.secteur}<div class="cl-bar" style="width:${barW}px;background:${colors[i]};opacity:.3"></div>
         </td>
         <td class="mono">${s.nPortes}</td>
-        <td class="mono" style="color:var(--color-text-secondary)">${partP}%</td>
+        <td class="mono" style="color:var(--text2)">${partP}%</td>
         <td class="mono">${Math.round(s.ca).toLocaleString('fr-FR')} €</td>
-        <td class="mono" style="color:var(--color-text-secondary)">${partCA}%</td>
+        <td class="mono" style="color:var(--text2)">${partCA}%</td>
         <td class="mono">${Math.round(s.marge).toLocaleString('fr-FR')} €</td>
         <td class="mono" style="${mc}">${mp.toFixed(1)}%</td>
         <td><button data-sect="${s.secteur}" data-sid="s${i}"
           onclick="clShowSecteurDetail(this.dataset.sect, window['_sectData_s'+this.dataset.sid.slice(1)])"
-          style="font-size:10px;padding:2px 8px;border:0.5px solid var(--color-border-secondary);border-radius:4px;cursor:pointer;background:none">
+          style="font-size:10px;padding:2px 8px;border:0.5px solid var(--border2);border-radius:4px;cursor:pointer;background:none">
           Détail ▸</button></td>
       </tr>`;
     }).join('') + `</tbody>`;
@@ -2288,7 +2288,7 @@ function showRefAClasser() {
   if(!postes.length) {
     section.style.display = 'block';
     document.getElementById('ref-tbl-aclasser-body').innerHTML =
-      `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--color-text-secondary)">
+      `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text2)">
         ✓ Tous les postes sont classifiés !
       </td></tr>`;
     section.scrollIntoView({behavior:'smooth', block:'nearest'});
@@ -2310,7 +2310,7 @@ function showRefAClasser() {
     return `<tr id="ref-aclasser-row-${i}">
       <td style="font-weight:500">
         ${p.poste}
-        <span style="font-size:10px;color:var(--color-text-secondary);margin-left:6px">${p.count}×</span>
+        <span style="font-size:10px;color:var(--text2);margin-left:6px">${p.count}×</span>
       </td>
       <td>
         <span style="background:${statutBg};color:${statutColor};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:500">
@@ -2319,14 +2319,14 @@ function showRefAClasser() {
       </td>
       <td>
         <select id="ref-ac-sect-${i}"
-          style="padding:4px 8px;border:0.5px solid var(--color-border-secondary);border-radius:6px;font-size:12px;background:var(--color-background-primary);color:var(--color-text-primary);min-width:160px">
+          style="padding:4px 8px;border:0.5px solid var(--border2);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);min-width:160px">
           <option value="">— Secteur —</option>
           ${secteurOpts}
         </select>
       </td>
       <td>
         <select id="ref-ac-met-${i}"
-          style="padding:4px 8px;border:0.5px solid var(--color-border-secondary);border-radius:6px;font-size:12px;background:var(--color-background-primary);color:var(--color-text-primary);min-width:160px">
+          style="padding:4px 8px;border:0.5px solid var(--border2);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);min-width:160px">
           <option value="">— Métier —</option>
         </select>
       </td>
@@ -2374,7 +2374,7 @@ function refUpdateMetierOptions(i) {
   metSel.innerHTML = '<option value="">— Métier —</option>' +
     metiers.map(m => `<option value="${m}">${m}</option>`).join('') +
     '<option value="__custom__">+ Autre métier…</option>';
-  metSel.style.border = metiers.length ? '0.5px solid var(--color-border-secondary)' : '0.5px solid #FAC775';
+  metSel.style.border = metiers.length ? '0.5px solid var(--border2)' : '0.5px solid #FAC775';
 }
 
 function refSaveOneClassement(i, poste) {
@@ -2476,12 +2476,12 @@ function renderRef() {
       return `<tr>
         <td>${e.p||e.pn}</td>
         <td><span style="background:${color}22;color:${color};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:500">${e.s}</span></td>
-        <td style="color:var(--color-text-secondary)">${e.m}</td>
+        <td style="color:var(--text2)">${e.m}</td>
         <td>${srcBadge}</td>
-        <td><button onclick="editRef(${i})" style="font-size:10px;padding:1px 6px;border:0.5px solid var(--color-border-secondary);border-radius:4px;cursor:pointer;background:none;color:var(--color-text-secondary)">✏</button></td>
+        <td><button onclick="editRef(${i})" style="font-size:10px;padding:1px 6px;border:0.5px solid var(--border2);border-radius:4px;cursor:pointer;background:none;color:var(--text2)">✏</button></td>
       </tr>`;
     }).join('') +
-    (filtered.length>200?`<tr><td colspan="5" style="text-align:center;color:var(--color-text-secondary);padding:12px">${filtered.length-200} entrées supplémentaires — affine ta recherche</td></tr>`:'') +
+    (filtered.length>200?`<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:12px">${filtered.length-200} entrées supplémentaires — affine ta recherche</td></tr>`:'') +
     `</tbody>`;
 }
 
@@ -3425,7 +3425,9 @@ function renderSuivi() {
   // ---- Métriques globales ----
   let totalCout=0, totalFact=0, totalMarge=0;
   yearData.forEach(d => {
-    totalCout  += totalCoutMois(d);
+    const swileMois     = d.rawTotalSwile    > 0 ? d.rawTotalSwile    : d.results.filter(r=>r.type==='matched').reduce((s,r)=>s+(r.swile||0),0);
+    const avantagesMois = d.rawTotalAvantages > 0 ? d.rawTotalAvantages : d.results.filter(r=>r.type==='matched').reduce((s,r)=>s+(r.avantages||0),0);
+    totalCout  += totalCoutMois(d) + swileMois + avantagesMois;
     totalFact  += totalCaMois(d);
     d.results.filter(r=>r.type==='matched').forEach(r => {
       totalMarge += r.margeEur;
@@ -3750,9 +3752,9 @@ function renderClientMetiersNew(yd1) {
     html += `<tr style="background:${color}11;font-weight:600">
       <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${color};margin-right:7px;vertical-align:middle"></span>${secteur}</td>
       <td class="mono">${totN}</td>
-      <td class="mono" style="color:var(--color-text-secondary)">${pN}%</td>
+      <td class="mono" style="color:var(--text2)">${pN}%</td>
       <td class="mono">${Math.round(totCA).toLocaleString('fr-FR')} €</td>
-      <td class="mono" style="color:var(--color-text-secondary)">${pCA}%</td>
+      <td class="mono" style="color:var(--text2)">${pCA}%</td>
       <td class="mono">${Math.round(totM).toLocaleString('fr-FR')} €</td>
       <td class="mono" style="${mc}">${mp.toFixed(1)}%</td>
     </tr>`;
@@ -3762,11 +3764,11 @@ function renderClientMetiersNew(yd1) {
       const pCA2 = grandTotCA>0?(d.ca/grandTotCA*100).toFixed(1):'—';
       const pN2  = grandTotN>0?(d.n/grandTotN*100).toFixed(1):'—';
       html += `<tr>
-        <td style="padding-left:28px;color:var(--color-text-secondary)">↳ ${metier}</td>
+        <td style="padding-left:28px;color:var(--text2)">↳ ${metier}</td>
         <td class="mono">${d.n}</td>
-        <td class="mono" style="color:var(--color-text-secondary)">${pN2}%</td>
+        <td class="mono" style="color:var(--text2)">${pN2}%</td>
         <td class="mono">${Math.round(d.ca).toLocaleString('fr-FR')} €</td>
-        <td class="mono" style="color:var(--color-text-secondary)">${pCA2}%</td>
+        <td class="mono" style="color:var(--text2)">${pCA2}%</td>
         <td class="mono">${Math.round(d.marge).toLocaleString('fr-FR')} €</td>
         <td class="mono" style="${mc2}">${mp2.toFixed(1)}%</td>
       </tr>`;
@@ -4315,14 +4317,14 @@ function renderClient() {
     ? top5Marge.map((c,i)=>{
         const medal = ['🥇','🥈','🥉','4','5'][i];
         const mc = c.margePct<4?'#BA7517':c.margePct>9?'#1D9E75':'#378ADD';
-        return `<div style="background:var(--color-background-secondary);border-radius:8px;padding:12px;text-align:center">
+        return `<div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center">
           <div style="font-size:18px;margin-bottom:4px">${medal}</div>
           <div style="font-size:12px;font-weight:500;margin-bottom:4px;word-break:break-word">${c.label}</div>
           <div style="font-size:20px;font-weight:500;color:${mc}">${c.margePct.toFixed(1)}%</div>
-          <div style="font-size:11px;color:var(--color-text-secondary)">${c.nPortes} consultants</div>
+          <div style="font-size:11px;color:var(--text2)">${c.nPortes} consultants</div>
         </div>`;
       }).join('')
-    : '<div style="color:var(--color-text-secondary);font-size:12px;padding:1rem">Aucun client avec 3+ consultants</div>';
+    : '<div style="color:var(--text2);font-size:12px;padding:1rem">Aucun client avec 3+ consultants</div>';
 
   // ── Table clients — 5 lignes par défaut, extensible ──
   window._clShowAll = window._clShowAll || false;
@@ -4343,7 +4345,7 @@ function renderClient() {
       }
       return `<tr>
         <td style="font-weight:500">${c.label}<div class="cl-bar" style="width:${barW}px;background:#7343EE;opacity:.3"></div></td>
-        <td style="font-family:var(--font-mono)">${Math.round(c.ca).toLocaleString('fr-FR')} €<span style="font-size:10px;color:var(--color-text-secondary);margin-left:4px">${pct}%</span></td>
+        <td style="font-family:var(--font-mono)">${Math.round(c.ca).toLocaleString('fr-FR')} €<span style="font-size:10px;color:var(--text2);margin-left:4px">${pct}%</span></td>
         <td style="font-family:var(--font-mono)">${Math.round(c.marge).toLocaleString('fr-FR')} €</td>
         <td style="font-family:var(--font-mono);${mpC}">${c.margePct.toFixed(1)}%</td>
         <td>${c.nPortes}</td><td>${c.nMois}</td>
@@ -4351,7 +4353,7 @@ function renderClient() {
       </tr>`;
     }).join('') +
     `</tbody>` +
-    (!window._clShowAll && clients1.length>5 ? `<tfoot><tr><td colspan="99" style="text-align:center;padding:8px;font-size:12px;color:var(--color-text-secondary)">${clients1.length-5} clients supplémentaires masqués</td></tr></tfoot>` : '');
+    (!window._clShowAll && clients1.length>5 ? `<tfoot><tr><td colspan="99" style="text-align:center;padding:8px;font-size:12px;color:var(--text2)">${clients1.length-5} clients supplémentaires masqués</td></tr></tfoot>` : '');
 
   // ═══════════════════════════════════
   // SECTION COMMERCIAUX
@@ -4508,7 +4510,7 @@ function renderClient() {
         <td><span style="background:${tColor}22;color:${tColor};font-size:11px;padding:2px 7px;border-radius:4px;font-weight:500">${TRANCHES[ti].label}</span></td>
         <td style="font-family:var(--font-mono)">${Math.round(brut).toLocaleString('fr-FR')} €</td>
         <td style="font-family:var(--font-mono);font-weight:500">${c.moy.toFixed(1)}%</td>
-        <td style="font-family:var(--font-mono);color:var(--color-text-secondary)">${c.min.toFixed(1)}%</td>
+        <td style="font-family:var(--font-mono);color:var(--text2)">${c.min.toFixed(1)}%</td>
         <td style="font-family:var(--font-mono);${varC}">${c.max.toFixed(1)}%</td>
         <td style="font-family:var(--font-mono)">${Math.round(c.cout).toLocaleString('fr-FR')} €</td>
       </tr>`;
@@ -4533,23 +4535,23 @@ function renderClient() {
              `<span class="cl-delta-neu">→ stable</span>`;
     }
     document.getElementById('cl-comp-kpis').innerHTML = `
-      <div style="background:var(--color-background-secondary);border-radius:8px;padding:14px 16px">
-        <div style="font-size:12px;color:var(--color-text-secondary)">CA ${year1} vs ${year2}</div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px 16px">
+        <div style="font-size:12px;color:var(--text2)">CA ${year1} vs ${year2}</div>
         <div style="font-size:20px;font-weight:500;margin:4px 0">${Math.round(totCA1).toLocaleString('fr-FR')} €</div>
         <div>${delta(totCA1,totCA2)}</div>
       </div>
-      <div style="background:var(--color-background-secondary);border-radius:8px;padding:14px 16px">
-        <div style="font-size:12px;color:var(--color-text-secondary)">Marge ${year1} vs ${year2}</div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px 16px">
+        <div style="font-size:12px;color:var(--text2)">Marge ${year1} vs ${year2}</div>
         <div style="font-size:20px;font-weight:500;margin:4px 0">${Math.round(totM1).toLocaleString('fr-FR')} €</div>
         <div>${delta(totM1,totM2)}</div>
       </div>
-      <div style="background:var(--color-background-secondary);border-radius:8px;padding:14px 16px">
-        <div style="font-size:12px;color:var(--color-text-secondary)">Portés uniques ${year1} vs ${year2}</div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px 16px">
+        <div style="font-size:12px;color:var(--text2)">Portés uniques ${year1} vs ${year2}</div>
         <div style="font-size:20px;font-weight:500;margin:4px 0">${totP1}</div>
         <div>${delta(totP1,totP2,'portés')}</div>
       </div>
-      <div style="background:var(--color-background-secondary);border-radius:8px;padding:14px 16px">
-        <div style="font-size:12px;color:var(--color-text-secondary)">Clients actifs</div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px 16px">
+        <div style="font-size:12px;color:var(--text2)">Clients actifs</div>
         <div style="font-size:20px;font-weight:500;margin:4px 0">${clients1.length}</div>
         <div>${delta(clients1.length,clients2.length,'clients')}</div>
       </div>`;
@@ -4624,7 +4626,7 @@ function buildDashboard(){
 
   if(!yd.length){
     document.getElementById('pil-subtitle').textContent='Aucune donnée pour '+year+' — sauvegarde des analyses mensuelles.';
-    document.getElementById('pil-kpis').innerHTML='<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--color-text-secondary)">Aucune donnée disponible.</div>';
+    document.getElementById('pil-kpis').innerHTML='<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--text2)">Aucune donnée disponible.</div>';
     return;
   }
 
@@ -4715,7 +4717,7 @@ function buildDashboard(){
       <div class="pil-kpi-lbl">CA réalisé ${year}</div>
       <div class="pil-kpi-val">${Math.round(totCA).toLocaleString('fr-FR')} €</div>
       ${objCA>0?`<div class="pil-kpi-sub" style="color:${totCA>=objCA?'#1D9E75':'#BA7517'}">${Math.round(totCA/objCA*100)}% de l'objectif</div>`:
-      `<div class="pil-kpi-sub" style="color:var(--color-text-secondary)">${months.length} mois · pas d'objectif</div>`}
+      `<div class="pil-kpi-sub" style="color:var(--text2)">${months.length} mois · pas d'objectif</div>`}
     </div>
     <div class="pil-kpi">
       <div class="pil-kpi-lbl">Marge moyenne</div>
@@ -4725,12 +4727,12 @@ function buildDashboard(){
     <div class="pil-kpi">
       <div class="pil-kpi-lbl">Portés actifs (dernier mois)</div>
       <div class="pil-kpi-val">${lastPortes}</div>
-      <div class="pil-kpi-sub" style="color:var(--color-text-secondary)">Moy. ${avgPortes.toFixed(1)} · max ${maxPortes}</div>
+      <div class="pil-kpi-sub" style="color:var(--text2)">Moy. ${avgPortes.toFixed(1)} · max ${maxPortes}</div>
     </div>
     <div class="pil-kpi">
       <div class="pil-kpi-lbl">Flux net portés</div>
       <div class="pil-kpi-val" style="color:${totalEntrants>=totalSortants?'#1D9E75':'#D63B3B'}">${totalEntrants>=totalSortants?'+':''}${totalEntrants-totalSortants}</div>
-      <div class="pil-kpi-sub" style="color:var(--color-text-secondary)">${totalEntrants} entrées · ${totalSortants} sorties</div>
+      <div class="pil-kpi-sub" style="color:var(--text2)">${totalEntrants} entrées · ${totalSortants} sorties</div>
     </div>`;
 
   // ── Projection ──
@@ -4756,7 +4758,7 @@ function buildDashboard(){
       return`<div class="pil-alert-row"><div class="pil-adot"></div><div><div class="pil-aname">${nom}</div><div class="pil-adetail">${vals} · Réviser TJM ou conditions de portage</div></div></div>`;
     }).join('');
   } else {
-    aBlock.innerHTML='<div style="font-size:13px;color:var(--color-text-secondary);padding:4px 0">Aucun consultant en décrochage pour les paramètres actuels.</div>';
+    aBlock.innerHTML='<div style="font-size:13px;color:var(--text2);padding:4px 0">Aucun consultant en décrochage pour les paramètres actuels.</div>';
   }
 
   // ── Graphiques ──
