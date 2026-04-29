@@ -1447,13 +1447,21 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
   </div>
   <div class="tk-staff-grid" id="tk-staff-grid"></div>
   <!-- Config commerciaux -->
-  <div id="tk-config-panel" style="display:none;margin-top:16px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:18px">
-    <div style="font-size:13px;font-weight:700;margin-bottom:12px">Correspondance compte Microsoft → Commercial</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">Permet d'identifier automatiquement le commercial connecte et de pre-selectionner son nom dans les taches.</div>
-    <div id="tk-config-rows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
-    <div style="display:flex;gap:8px">
-      <button onclick="tkSaveConfig()" class="btn btn-primary btn-sm">Sauvegarder</button>
-      <button onclick="tkToggleConfig()" class="btn btn-secondary btn-sm">Fermer</button>
+  <div id="tk-config-panel" style="display:none;margin-top:16px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:20px">
+    <div style="font-size:13px;font-weight:700;margin-bottom:6px">Parametres equipe commerciale</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:16px">Associe chaque commercial a son email Microsoft pour l'identifier automatiquement a la connexion.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;margin-bottom:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Prenom</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Email Microsoft</div>
+      <div></div>
+    </div>
+    <div id="tk-config-rows" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px;justify-content:space-between;align-items:center">
+      <button onclick="tkConfigAddRow()" class="btn btn-secondary btn-sm">+ Ajouter un commercial</button>
+      <div style="display:flex;gap:8px">
+        <button onclick="tkSaveConfig()" class="btn btn-primary btn-sm">Sauvegarder</button>
+        <button onclick="tkToggleConfig()" class="btn btn-secondary btn-sm">Fermer</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2351,6 +2359,13 @@ document.addEventListener('click', function(e) {
   }
 });
 
+function tkOpenFromRegistry(key) {
+  var reg = window._tkRegistry || {};
+  var data = reg[key];
+  if(!data) { console.warn('Registry key not found:', key); return; }
+  tkNewFromSuivi(data.norm, data.display, data.comment, key);
+}
+
 function tkNewFromSuivi(normNom, displayNom, comment, rowId) {
   document.getElementById('tk-edit-id').value    = '';
   document.getElementById('tk-title').value      = 'Action pour ' + displayNom;
@@ -2388,32 +2403,58 @@ function tkToggleConfig() {
 }
 
 function tkRenderConfig() {
+  // Construire la liste depuis TK_STAFF_MAP actuel
   var config = tkLoadConfig() || TK_STAFF_MAP;
   var rows = document.getElementById('tk-config-rows');
   if(!rows) return;
-  rows.innerHTML = TK_STAFF.map(function(name) {
+  // Liste des commerciaux : union de TK_STAFF + config sauvegardée
+  var allNames = [];
+  TK_STAFF.forEach(function(n){ if(allNames.indexOf(n)<0) allNames.push(n); });
+  Object.values(config).forEach(function(n){ if(allNames.indexOf(n)<0) allNames.push(n); });
+  rows.innerHTML = allNames.map(function(name) {
     var email = Object.keys(config).find(function(k){ return config[k] === name; }) || '';
-    return '<div style="display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center">' +
-      '<div style="font-size:13px;font-weight:600">' + name + '</div>' +
-      '<input type="email" value="' + email + '" placeholder="email@seven-portage.fr" ' +
-      'data-name="' + name + '" ' +
-      'style="padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius-xs);font-size:12px;font-family:var(--font);background:var(--surface);color:var(--text)">' +
+    return '<div class="tk-config-row" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center">' +
+      '<input type="text" value="' + name + '" placeholder="Prenom" class="tk-form-input" style="font-size:12px;padding:6px 10px">' +
+      '<input type="email" value="' + email + '" placeholder="email@seven-portage.fr" class="tk-form-input" style="font-size:12px;padding:6px 10px">' +
+      '<button onclick="tkConfigRemoveRow(this)" style="border:none;background:var(--danger-bg);color:var(--danger);border-radius:5px;padding:4px 8px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">✕</button>' +
       '</div>';
   }).join('');
 }
 
+function tkConfigRemoveRow(btn) { btn.closest(".tk-config-row").remove(); }
+function tkConfigAddRow() {
+  var rows = document.getElementById('tk-config-rows');
+  if(!rows) return;
+  var div = document.createElement('div');
+  div.className = 'tk-config-row';
+  div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center';
+  div.innerHTML =
+    '<input type="text" placeholder="Prenom" class="tk-form-input" style="font-size:12px;padding:6px 10px">' +
+    '<input type="email" placeholder="email@seven-portage.fr" class="tk-form-input" style="font-size:12px;padding:6px 10px">' +
+    '<button onclick="tkConfigRemoveRow(this)" style="border:none;background:var(--danger-bg);color:var(--danger);border-radius:5px;padding:4px 8px;cursor:pointer;font-size:12px;font-weight:600">✕</button>';
+  rows.appendChild(div);
+  div.querySelector('input').focus();
+}
+
 function tkSaveConfig() {
-  var inputs = document.querySelectorAll('#tk-config-rows input[data-name]');
+  var configRows = document.querySelectorAll('#tk-config-rows .tk-config-row');
   var newMap = {};
-  inputs.forEach(function(inp) {
-    var email = inp.value.trim().toLowerCase();
-    var name  = inp.dataset.name;
-    if(email) newMap[email] = name;
+  var newStaff = [];
+  configRows.forEach(function(row) {
+    var inputs = row.querySelectorAll('input');
+    var name  = (inputs[0] && inputs[0].value.trim()) || '';
+    var email = (inputs[1] && inputs[1].value.trim().toLowerCase()) || '';
+    if(name) {
+      if(newStaff.indexOf(name) < 0) newStaff.push(name);
+      if(email) newMap[email] = name;
+    }
   });
-  // Mettre à jour TK_STAFF_MAP
+  // Mettre à jour TK_STAFF et TK_STAFF_MAP
+  TK_STAFF.length = 0;
+  newStaff.forEach(function(n){ TK_STAFF.push(n); });
   Object.keys(TK_STAFF_MAP).forEach(function(k){ delete TK_STAFF_MAP[k]; });
   Object.assign(TK_STAFF_MAP, newMap);
-  localStorage.setItem(TK_CONFIG_KEY, JSON.stringify(newMap));
+  localStorage.setItem(TK_CONFIG_KEY, JSON.stringify({map: newMap, staff: newStaff}));
   // Re-identifier l'utilisateur courant
   var account = window._odAccount || (msalApp ? msalApp.getAllAccounts()[0] : null);
   if(account) {
@@ -2421,17 +2462,23 @@ function tkSaveConfig() {
     window._tkCurrentUser = TK_STAFF_MAP[email] || window._tkCurrentUser;
   }
   document.getElementById('tk-config-panel').style.display = 'none';
+  tkRender();
   var btn = document.getElementById('tk-config-btn');
-  if(btn) btn.textContent = '✓ Sauvegarde';
-  setTimeout(function(){ if(btn) btn.textContent = '⚙ Parametres equipe'; }, 2000);
+  if(btn) { btn.textContent = '✓ Sauvegarde'; setTimeout(function(){ btn.textContent = '⚙ Parametres equipe'; }, 2000); }
 }
 
-// Charger la config sauvegardée au démarrage
+// Charger la config sauvegardee au demarrage
 (function() {
   var saved = tkLoadConfig();
   if(saved) {
+    var map   = saved.map   || saved;  // compat ancien format
+    var staff = saved.staff || Object.values(saved);
     Object.keys(TK_STAFF_MAP).forEach(function(k){ delete TK_STAFF_MAP[k]; });
-    Object.assign(TK_STAFF_MAP, saved);
+    Object.assign(TK_STAFF_MAP, map);
+    if(staff && staff.length) {
+      TK_STAFF.length = 0;
+      staff.forEach(function(n){ TK_STAFF.push(n); });
+    }
   }
 })();
 
@@ -4002,12 +4049,13 @@ function renderSuivi() {
         style="width:16px;height:16px;cursor:pointer;accent-color:#7343EE"
         onchange="suiviToggleCp('${norm(nom).replace(/'/g,"\'")}',this.checked)">
     </td>`;
-        row += `<td style="background:var(--surface2);padding:4px 8px;text-align:center">
-      <button class="tk-suivi-btn"
-        data-norm="${norm(nom).replace(/"/g,'&quot;')}"
-        data-display="${nom.replace(/"/g,'&quot;')}"
-        data-comment="${comment.replace(/"/g,'&quot;')}"
-        title="Nouvelle tache"
+        // Stocker les données dans un registre global pour éviter les problèmes de quotes
+    const _tkKey = 'tk_' + norm(nom).replace(/[^a-z0-9]/g,'_');
+    window._tkRegistry = window._tkRegistry || {};
+    window._tkRegistry[_tkKey] = {norm: norm(nom), display: nom, comment: comment};
+    row += `<td style="background:var(--surface2);padding:4px 8px;text-align:center">
+      <button onclick="tkOpenFromRegistry('${_tkKey}');event.stopPropagation()"
+        title="Nouvelle tache pour ${nom}"
         style="border:none;background:var(--brand-soft);color:var(--brand);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap">
         + Tache
       </button>
