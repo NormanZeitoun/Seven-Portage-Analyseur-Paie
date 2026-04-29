@@ -1333,10 +1333,19 @@ select {
   <div class="tk-cal">
     <div class="tk-cal-header">
       <div style="font-size:13px;font-weight:700" id="tk-week-lbl">Semaine</div>
-      <div class="tk-cal-nav">
-        <button onclick="tkWeekNav(-1)">&#8249;</button>
-        <button onclick="tkWeekNav(0)" style="font-size:10px;width:auto;padding:0 10px">Auj.</button>
-        <button onclick="tkWeekNav(1)">&#8250;</button>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <select id="tk-cal-filter" onchange="tkCalFilter()" style="padding:4px 24px 4px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;font-family:var(--font);background:#FAFAFA;color:var(--text);cursor:pointer">
+          <option value="">Tous les commerciaux</option>
+        </select>
+        <div style="display:flex;border:1.5px solid var(--border);border-radius:7px;overflow:hidden">
+          <button id="tk-view-day" onclick="tkSetView('day')" style="padding:4px 12px;font-size:11.5px;font-weight:600;border:none;background:var(--surface);color:var(--muted);cursor:pointer;transition:all .15s">Jour</button>
+          <button id="tk-view-week" onclick="tkSetView('week')" style="padding:4px 12px;font-size:11.5px;font-weight:600;border:none;background:var(--brand);color:#fff;cursor:pointer;transition:all .15s">Semaine</button>
+        </div>
+        <div class="tk-cal-nav">
+          <button onclick="tkNav(-1)">&#8249;</button>
+          <button onclick="tkNav(0)" style="font-size:10px;width:auto;padding:0 10px">Auj.</button>
+          <button onclick="tkNav(1)">&#8250;</button>
+        </div>
       </div>
     </div>
     <div class="tk-week" id="tk-week"></div>
@@ -2202,7 +2211,7 @@ var _tkWeekOffset = 0; // 0 = semaine courante
 var _tkWeekOff = 0;
 
 function tkPopulateStaffSelects() {
-  ['tk-assignee','tk-filter-assignee'].forEach(function(id) {
+  ['tk-assignee','tk-filter-assignee','tk-cal-filter'].forEach(function(id) {
     var sel = document.getElementById(id);
     if(!sel) return;
     var cur = sel.value;
@@ -2219,7 +2228,7 @@ function tkPopulateStaffSelects() {
 function tkRender() {
   tkPopulateStaffSelects();
   tkRenderStats();
-  tkRenderWeek();
+  if(_tkView==='day') tkRenderDay(); else tkRenderWeek();
   tkRenderPrio();
   tkRenderStaffIndex();
   tkUpdateBadge();
@@ -2356,34 +2365,120 @@ function tkRenderWeek() {
   }).join('');
 }
 
-function tkWeekNav(dir){
-  _tkWeekOff = dir===0?0:_tkWeekOff+dir;
-  tkRenderWeek();
+var _tkView = 'week';
+var _tkDayOff = 0;
+
+function tkCalFilter() {
+  // Re-render la vue active avec le nouveau filtre
+  if(_tkView === 'day') tkRenderDay();
+  else tkRenderWeek();
 }
 
-function tkRenderPrio(){
-  var tasks=tkLoad().filter(function(t){return t.prio==='haute'&&t.statut!=='fait';});
-  var cnt=document.getElementById('tk-pcount');
-  if(cnt) cnt.textContent='('+tasks.length+')';
-  var el=document.getElementById('tk-plist');
-  if(!el) return;
-  if(!tasks.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px">Aucune</div>';return;}
-  el.innerHTML=tasks.map(function(t){
-    return '<div class="tk-pcard" onclick="tkEdit(\'' + t.id + '\')">'+
-      '<div class="tk-pcard-title">'+t.title+'</div>'+
-      '<div class="tk-pcard-meta">'+
-        (t.consultant?'👤 '+t.consultant+' &middot; ':'')+
-        (t.assignee?t.assignee:'Non assigne')+
-        (t.echeance?' &middot; &#128336; '+t.echeance:'')+
-      '</div>'+
-    '</div>';
-  }).join('');
+function tkGetCalTasks() {
+  // Récupérer les taches filtrées par commercial pour l'agenda
+  var assignee = (document.getElementById('tk-cal-filter')||{}).value || '';
+  var tasks = tkLoad().filter(function(t){ return t.statut !== 'fait'; });
+  if(assignee) tasks = tasks.filter(function(t){ return t.assignee === assignee; });
+  return tasks;
 }
 
-function tkRenderStaffIndex(){
-  var tasks=tkLoad();
-  var grid=document.getElementById('tk-staff-grid');
+function tkSetView(view) {
+  _tkView = view;
+  _tkDayOff = 0;
+  _tkWeekOff = 0;
+  // Boutons toggle
+  var btnDay  = document.getElementById('tk-view-day');
+  var btnWeek = document.getElementById('tk-view-week');
+  if(btnDay && btnWeek) {
+    if(view === 'day') {
+      btnDay.style.background  = 'var(--brand)'; btnDay.style.color  = '#fff';
+      btnWeek.style.background = 'var(--surface)'; btnWeek.style.color = 'var(--muted)';
+    } else {
+      btnWeek.style.background = 'var(--brand)'; btnWeek.style.color = '#fff';
+      btnDay.style.background  = 'var(--surface)'; btnDay.style.color  = 'var(--muted)';
+    }
+  }
+  if(view === 'day') tkRenderDay();
+  else tkRenderWeek();
+}
+
+function tkNav(dir) {
+  if(_tkView === 'day') {
+    _tkDayOff = dir === 0 ? 0 : _tkDayOff + dir;
+    tkRenderDay();
+  } else {
+    _tkWeekOff = dir === 0 ? 0 : _tkWeekOff + dir;
+    tkRenderWeek();
+  }
+}
+
+// Compat ancien nom
+function tkWeekNav(dir) { tkNav(dir); }
+
+function tkRenderDay() {
+  var today = new Date();
+  var d = new Date(today);
+  d.setDate(today.getDate() + _tkDayOff);
+  var iso = d.toISOString().slice(0,10);
+  var todayIso = today.toISOString().slice(0,10);
+  var DAY_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+
+  var lbl = document.getElementById('tk-week-lbl');
+  if(lbl) lbl.textContent = DAY_FR[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth()+1) + '/' + d.getFullYear();
+
+  var tasks = tkGetCalTasks();
+  // Taches du jour + taches en retard si aujourd'hui
+  var dayTasks = tasks.filter(function(t){ return t.echeance === iso; });
+  if(iso === todayIso) {
+    var overdue = tasks.filter(function(t){ return t.echeance && t.echeance < todayIso; });
+    dayTasks = overdue.concat(dayTasks);
+  }
+  // Taches sans échéance : afficher aujourd'hui
+  if(iso === todayIso) {
+    var noDate = tasks.filter(function(t){ return !t.echeance; });
+    dayTasks = dayTasks.concat(noDate);
+  }
+
+  var grid = document.getElementById('tk-week');
   if(!grid) return;
+
+  if(!dayTasks.length) {
+    grid.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px">Aucune tache ce jour</div>';
+    grid.style.gridTemplateColumns = '1fr';
+    return;
+  }
+
+  grid.style.gridTemplateColumns = '1fr';
+  var cards = dayTasks.map(function(t) {
+    var dot = t.prio==='haute'?'#DC2626':t.prio==='basse'?'#16A34A':'#2563EB';
+    var isLate = t.echeance && t.echeance < todayIso;
+    var html = '<div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid '+dot+';border-radius:8px;padding:12px 14px;cursor:pointer;display:flex;align-items:flex-start;gap:10px">';
+    html += '<div style="flex:1">';
+    html += '<div style="font-size:13px;font-weight:600;margin-bottom:3px">'+t.title+'</div>';
+    if(t.consultant) html += '<div style="font-size:12px;color:var(--muted)">&#128100; '+t.consultant+'</div>';
+    if(t.desc) html += '<div style="font-size:11.5px;color:var(--muted);margin-top:4px">'+t.desc.slice(0,80)+(t.desc.length>80?'&#8230;':'')+'</div>';
+    html += '</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">';
+    if(t.assignee) html += '<span class="badge badge-info">'+t.assignee+'</span>';
+    html += isLate ? '<span class="badge badge-danger">En retard</span>' :
+            t.echeance ? '<span class="badge badge-gray">'+t.echeance+'</span>' :
+            '<span class="badge badge-gray">Sans date</span>';
+    html += '</div></div>';
+    return {id: t.id, html: html};
+  });
+  var wrapper = document.createElement('div');
+  wrapper.style.cssText = 'padding:12px;display:flex;flex-direction:column;gap:8px';
+  cards.forEach(function(c) {
+    var el = document.createElement('div');
+    el.innerHTML = c.html;
+    var inner = el.firstChild;
+    inner.addEventListener('click', function(){ tkEdit(c.id); });
+    wrapper.appendChild(inner);
+  });
+  grid.innerHTML = '';
+  grid.appendChild(wrapper);
+  return;
+  // (dead code below kept for structure)
+
   grid.innerHTML=TK_STAFF.map(function(name){
     var mine=tasks.filter(function(t){return t.assignee===name;});
     var open=mine.filter(function(t){return t.statut!=='fait';}).length;
@@ -2401,6 +2496,44 @@ function tkRenderStaffIndex(){
   }).join('');
 }
 
+
+function tkRenderPrio(){
+  var tasks=tkLoad().filter(function(t){return t.prio==='haute'&&t.statut!=='fait';});
+  var cnt=document.getElementById('tk-pcount');
+  if(cnt) cnt.textContent='('+tasks.length+')';
+  var el=document.getElementById('tk-plist');
+  if(!el) return;
+  if(!tasks.length){el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px">Aucune</div>';return;}
+  el.innerHTML=tasks.map(function(t){
+    return '<div class="tk-pcard" onclick="tkEdit(\'' + t.id + '\')">'+
+      '<div class="tk-pcard-title">'+t.title+'</div>'+
+      '<div class="tk-pcard-meta">'+
+        (t.consultant?'&#128100; '+t.consultant+' &middot; ':'')+
+        (t.assignee?t.assignee:'Non assigne')+
+        (t.echeance?' &middot; &#128336; '+t.echeance:'')+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function tkRenderStaffIndex(){
+  var tasks=tkLoad();
+  var grid=document.getElementById('tk-staff-grid');
+  if(!grid) return;
+  grid.innerHTML=TK_STAFF.map(function(name){
+    var mine=tasks.filter(function(t){return t.assignee===name;});
+    var open=mine.filter(function(t){return t.statut!=='fait';}).length;
+    var urg=mine.filter(function(t){return t.prio==='haute'&&t.statut!=='fait';}).length;
+    return '<div onclick="document.getElementById(\'tk-filter-assignee\').value=\'' + name + '\';tkToggleList(\'all\')" '+
+      'style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;cursor:pointer;transition:background .12s" '+
+      'onmouseover="this.style.background=&apos;var(--brand-soft)&apos;" onmouseout="this.style.background=&apos;&apos;">'+
+      '<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+name.slice(0,2).toUpperCase()+'</div>'+
+      '<div style="flex:1;font-size:12px;font-weight:600">'+name+'</div>'+
+      (open?'<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--warn-bg);color:var(--warning)">'+open+'</span>':'')+
+      (urg?'<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--danger-bg);color:var(--danger)">&#9888;</span>':'')+
+    '</div>';
+  }).join('');
+}
 
 // ======== CONFIG COMMERCIAUX ========
 var TK_CONFIG_KEY = 'seven_portage_tk_config_v1';
