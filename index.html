@@ -4061,7 +4061,7 @@ function renderSuivi() {
     window._tkRegistry[_tkKey] = {norm: norm(nom), display: nom, comment: comment};
     // Bouton tache - onclick sans quotes (clé safe [a-z0-9_] uniquement)
     row += '<td style="background:var(--surface2);padding:4px 8px;text-align:center">' +
-      '<button onclick="tkOpenFromRegistry(' + JSON.stringify(_tkKey) + ');event.stopPropagation()" ' +
+      '<button onclick="tkOpenFromRegistry(\'' + _tkKey + '\');event.stopPropagation()" ' +
       'style="border:none;background:var(--brand-soft);color:var(--brand);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap">' +
       '+ Tache' +
       '</button></td>';
