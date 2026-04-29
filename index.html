@@ -2403,16 +2403,16 @@ function tkToggleConfig() {
 }
 
 function tkRenderConfig() {
-  // Construire la liste depuis TK_STAFF_MAP actuel
-  var config = tkLoadConfig() || TK_STAFF_MAP;
   var rows = document.getElementById('tk-config-rows');
   if(!rows) return;
-  // Liste des commerciaux : union de TK_STAFF + config sauvegardée
-  var allNames = [];
-  TK_STAFF.forEach(function(n){ if(allNames.indexOf(n)<0) allNames.push(n); });
-  Object.values(config).forEach(function(n){ if(allNames.indexOf(n)<0) allNames.push(n); });
+  // Construire liste depuis TK_STAFF (noms) + TK_STAFF_MAP (emails)
+  var allNames = TK_STAFF.slice();
   rows.innerHTML = allNames.map(function(name) {
-    var email = Object.keys(config).find(function(k){ return config[k] === name; }) || '';
+    // Trouver l'email correspondant dans TK_STAFF_MAP
+    var email = '';
+    Object.keys(TK_STAFF_MAP).forEach(function(k) {
+      if(TK_STAFF_MAP[k] === name) email = k;
+    });
     return '<div class="tk-config-row" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center">' +
       '<input type="text" value="' + name + '" placeholder="Prenom" class="tk-form-input" style="font-size:12px;padding:6px 10px">' +
       '<input type="email" value="' + email + '" placeholder="email@seven-portage.fr" class="tk-form-input" style="font-size:12px;padding:6px 10px">' +
@@ -2454,7 +2454,8 @@ function tkSaveConfig() {
   newStaff.forEach(function(n){ TK_STAFF.push(n); });
   Object.keys(TK_STAFF_MAP).forEach(function(k){ delete TK_STAFF_MAP[k]; });
   Object.assign(TK_STAFF_MAP, newMap);
-  localStorage.setItem(TK_CONFIG_KEY, JSON.stringify({map: newMap, staff: newStaff}));
+  var configToSave = { map: newMap, staff: newStaff };
+  localStorage.setItem(TK_CONFIG_KEY, JSON.stringify(configToSave));
   // Re-identifier l'utilisateur courant
   var account = window._odAccount || (msalApp ? msalApp.getAllAccounts()[0] : null);
   if(account) {
@@ -2469,17 +2470,22 @@ function tkSaveConfig() {
 
 // Charger la config sauvegardee au demarrage
 (function() {
-  var saved = tkLoadConfig();
-  if(saved) {
-    var map   = saved.map   || saved;  // compat ancien format
-    var staff = saved.staff || Object.values(saved);
-    Object.keys(TK_STAFF_MAP).forEach(function(k){ delete TK_STAFF_MAP[k]; });
-    Object.assign(TK_STAFF_MAP, map);
-    if(staff && staff.length) {
+  var raw = localStorage.getItem(TK_CONFIG_KEY);
+  if(!raw) return;
+  try {
+    var saved = JSON.parse(raw);
+    // Format attendu : { map: {email: nom}, staff: [nom1, nom2...] }
+    var map   = (saved && saved.map)   ? saved.map   : null;
+    var staff = (saved && saved.staff) ? saved.staff : null;
+    if(map && typeof map === 'object') {
+      Object.keys(TK_STAFF_MAP).forEach(function(k){ delete TK_STAFF_MAP[k]; });
+      Object.keys(map).forEach(function(k){ TK_STAFF_MAP[k] = map[k]; });
+    }
+    if(staff && Array.isArray(staff) && staff.length > 0) {
       TK_STAFF.length = 0;
       staff.forEach(function(n){ TK_STAFF.push(n); });
     }
-  }
+  } catch(e) { console.warn('TK config parse error', e); }
 })();
 
 // ======== RÉFÉRENTIEL MÉTIERS ========
@@ -4053,13 +4059,12 @@ function renderSuivi() {
     const _tkKey = 'tk_' + norm(nom).replace(/[^a-z0-9]/g,'_');
     window._tkRegistry = window._tkRegistry || {};
     window._tkRegistry[_tkKey] = {norm: norm(nom), display: nom, comment: comment};
-    row += `<td style="background:var(--surface2);padding:4px 8px;text-align:center">
-      <button onclick="tkOpenFromRegistry('${_tkKey}');event.stopPropagation()"
-        title="Nouvelle tache pour ${nom}"
-        style="border:none;background:var(--brand-soft);color:var(--brand);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap">
-        + Tache
-      </button>
-    </td>`;
+    // Bouton tache - onclick sans quotes (clé safe [a-z0-9_] uniquement)
+    row += '<td style="background:var(--surface2);padding:4px 8px;text-align:center">' +
+      '<button onclick="tkOpenFromRegistry(' + JSON.stringify(_tkKey) + ');event.stopPropagation()" ' +
+      'style="border:none;background:var(--brand-soft);color:var(--brand);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap">' +
+      '+ Tache' +
+      '</button></td>';
         row += `<td style="background:var(--surface2);padding:4px 8px">
       <div style="display:flex;align-items:center;gap:6px">
         <input type="text" value="${comment.replace(/"/g,'&quot;')}" placeholder="Ajouter une note…"
