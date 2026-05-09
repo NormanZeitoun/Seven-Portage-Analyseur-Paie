@@ -362,7 +362,7 @@ select {
     <div class="form-group">
       <label class="form-label">Année</label>
       <select id="sel-year" style="width:90px">
-        <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
+        <option value="2024">2024</option><option value="2025">2025</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
       </select>
     </div>
     <div class="form-group">
@@ -645,12 +645,12 @@ select {
     </div>
     <div id="cl-year-selects" style="display:flex;gap:8px;align-items:center">
       <select id="cl-year1" onchange="renderClient()">
-        <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
+        <option value="2024">2024</option><option value="2025">2025</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
       </select>
       <span style="font-size:12px;color:var(--text2)">vs</span>
       <select id="cl-year2" onchange="renderClient()">
         <option value="">— pas de comparaison —</option>
-        <option value="2024">2024</option><option value="2025" selected>2025</option><option value="2026">2026</option>
+        <option value="2024">2024</option><option value="2025" selected>2025</option><option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
       </select>
     </div>
   </div>
@@ -941,7 +941,7 @@ select {
           <select id="suivi-year" onchange="renderSuivi()" style="width:90px">
             <option value="2024">2024</option>
             <option value="2025">2025</option>
-            <option value="2026" selected>2026</option>
+            <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
           </select>
         </div>
         <button class="btn btn-secondary btn-sm" onclick="exportSuiviExcel()">⬇ Export Excel</button>
@@ -1019,7 +1019,7 @@ select {
       <div style="font-size:12px;color:var(--text2);margin-top:2px" id="pil-subtitle">—</div>
     </div>
     <select id="pil-year" onchange="buildDashboard()" style="padding:6px 10px;border:0.5px solid var(--border2);border-radius:6px;font-size:13px">
-      <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
+      <option value="2024">2024</option><option value="2025">2025</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
     </select>
   </div>
 
@@ -1112,7 +1112,7 @@ select {
     <div style="font-size:12px;color:var(--text2);margin-top:2px" id="ax-subtitle">Analyse automatique basée sur l'historique</div>
   </div>
   <select id="ax-year" onchange="renderAxes()" style="padding:6px 10px;border:0.5px solid var(--border2);border-radius:6px;font-size:13px">
-    <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
+    <option value="2024">2024</option><option value="2025">2025</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
   </select>
 </div>
 
@@ -1208,7 +1208,7 @@ select {
         <select id="fin-year" onchange="renderFinancier()" style="width:90px">
           <option value="2024">2024</option>
           <option value="2025">2025</option>
-          <option value="2026" selected>2026</option>
+          <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
         </select>
       </div>
       <button class="btn btn-primary btn-sm" onclick="renderFinancier()">↻ Recalculer</button>
@@ -1662,6 +1662,57 @@ select {
           <tbody id="fiche-mois-tbody"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ======== FICHE CLIENT ======== -->
+<div id="fid-cli-fiche" style="display:none;position:fixed;inset:0;background:rgba(15,11,20,.6);z-index:9998;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 16px;backdrop-filter:blur(4px)">
+  <div class="fiche-inner">
+    <button class="fiche-close" onclick="closeFicheClient()">&#10005;</button>
+    <div class="fiche-header" style="background:linear-gradient(135deg,#1E40AF,#2563EB)">
+      <div class="fiche-name" id="fid-cli-fiche-nom">&#8212;</div>
+      <div class="fiche-meta" id="fid-cli-fiche-meta"></div>
+    </div>
+    <div class="fiche-body">
+      <div class="fiche-kpis" id="fid-cli-fiche-kpis"></div>
+      <div class="fiche-section">
+        <div class="fiche-section-title">Evolution des portes actifs</div>
+        <div class="fiche-chart" id="fid-cli-chart"></div>
+      </div>
+      <div class="fiche-section">
+        <div class="fiche-section-title">Detail mois par mois</div>
+        <table class="fiche-mois-tbl"><thead><tr>
+          <th>Mois</th><th style="text-align:right">Portes actifs</th>
+          <th style="text-align:right">CA facture</th>
+          <th style="text-align:right">Marge</th>
+          <th style="text-align:right">Marge %</th>
+        </tr></thead><tbody id="fid-cli-fiche-tbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======== CLIENTS INACTIFS ======== -->
+<div id="fid-inactifs-panel" style="display:none;position:fixed;inset:0;background:rgba(15,11,20,.6);z-index:9998;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 16px;backdrop-filter:blur(4px)">
+  <div class="fiche-inner" style="max-width:800px">
+    <button class="fiche-close" onclick="document.getElementById('fid-inactifs-panel').style.display='none'" style="background:rgba(0,0,0,.15);color:var(--text)">&#10005;</button>
+    <div style="padding:20px 24px;border-bottom:1px solid var(--border)">
+      <div style="font-size:17px;font-weight:700;margin-bottom:3px">Clients inactifs</div>
+      <div style="font-size:12px;color:var(--muted)" id="fid-inactifs-subtitle"></div>
+    </div>
+    <div style="padding:16px 24px">
+      <table class="fiche-mois-tbl" id="fid-inactifs-tbl">
+        <thead><tr>
+          <th>Client</th><th style="text-align:center">Inactif depuis</th>
+          <th style="text-align:center">Duree relation</th>
+          <th style="text-align:right">Portes totaux</th>
+          <th style="text-align:right">CA genere</th>
+          <th style="text-align:right">Marge generee</th>
+        </tr></thead>
+        <tbody id="fid-inactifs-tbody"></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -2338,6 +2389,130 @@ function odAutoSync() {
 }
 
 
+// ======== FICHE CLIENT ========
+function openFicheClient(nomClient) {
+  var h = [];
+  try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) {}
+  h.sort(function(a,b){ return (a.year+a.month).localeCompare(b.year+b.month); });
+  var moisMap = {};
+  h.forEach(function(moisHist) {
+    var moisKey = moisHist.year + '-' + ('0'+moisHist.month).slice(-2);
+    var portesSet = new Set(), caMois = 0, margeMois = 0;
+    (moisHist.results||[]).forEach(function(r) {
+      if(r.type !== 'matched') return;
+      if((r.client||'').trim() !== nomClient) return;
+      if((r.facture||0) === 0) return;
+      portesSet.add(norm(r.nom||r.crmNom||''));
+      caMois += (r.facture||0);
+      margeMois += (r.margeEur||0);
+    });
+    if(portesSet.size > 0) moisMap[moisKey] = {
+      mois:moisKey, year:moisHist.year, month:moisHist.month,
+      portes:portesSet.size, ca:caMois, marge:margeMois,
+      margePct: caMois>0?(margeMois/caMois*100):0
+    };
+  });
+  var moisData = Object.values(moisMap).sort(function(a,b){ return a.mois.localeCompare(b.mois); });
+  if(!moisData.length) return;
+  var caTotal    = moisData.reduce(function(s,m){ return s+m.ca; }, 0);
+  var margeTotal = moisData.reduce(function(s,m){ return s+m.marge; }, 0);
+  var margePct   = caTotal > 0 ? (margeTotal/caTotal*100) : 0;
+  var maxPortes  = Math.max.apply(null, moisData.map(function(m){ return m.portes; }));
+  var portesTotaux = new Set();
+  h.forEach(function(moisHist) {
+    (moisHist.results||[]).forEach(function(r) {
+      if((r.client||'').trim()===nomClient && (r.facture||0)>0)
+        portesTotaux.add(norm(r.nom||r.crmNom||''));
+    });
+  });
+  var dernierMoisDispo = h.length ? h[h.length-1].year+'-'+('0'+h[h.length-1].month).slice(-2) : '';
+  var estActif = moisData[moisData.length-1].mois === dernierMoisDispo;
+  // Header
+  document.getElementById('fid-cli-fiche-nom').textContent = nomClient;
+  var d1c = new Date(moisData[0].mois+'-01');
+  var d2c = new Date(dernierMoisDispo ? dernierMoisDispo+'-01' : new Date());
+  var anc = (d2c.getFullYear()-d1c.getFullYear())*12+(d2c.getMonth()-d1c.getMonth());
+  document.getElementById('fid-cli-fiche-meta').innerHTML =
+    '<span>Depuis '+fmtMoisFid(moisData[0].mois)+'</span>'+
+    '<span>'+anc+' mois de relation</span>'+
+    '<span>'+portesTotaux.size+' portes distincts</span>'+
+    '<span>'+(estActif?'Actif':'Inactif depuis '+fmtMoisFid(moisData[moisData.length-1].mois))+'</span>';
+  // KPIs
+  var mc = margePct<0?'danger':margePct<4?'warn':'ok';
+  document.getElementById('fid-cli-fiche-kpis').innerHTML = [
+    {lbl:'CA total',       val:Math.round(caTotal).toLocaleString('fr-FR')+' EUR',    cls:''},
+    {lbl:'Marge totale',   val:Math.round(margeTotal).toLocaleString('fr-FR')+' EUR', cls:mc},
+    {lbl:'Marge %',        val:margePct.toFixed(1)+'%',                               cls:mc},
+    {lbl:'Portes max/mois',val:maxPortes,                                             cls:''}
+  ].map(function(k){
+    return '<div class="metric"><div class="metric-label">'+k.lbl+'</div>'+
+      '<div class="metric-val'+(k.cls?' '+k.cls:'')+'">'+k.val+'</div></div>';
+  }).join('');
+  // Graphique
+  var chartEl = document.getElementById('fid-cli-chart');
+  chartEl.innerHTML = moisData.map(function(m){
+    var hp = maxPortes>0?Math.max(4,Math.round(m.portes/maxPortes*72)):4;
+    var col = m.margePct<0?'var(--danger)':m.margePct<4?'var(--warning)':'#2563EB';
+    return '<div class="fiche-bar-col" title="'+MONTHS_FR[parseInt(m.month)-1]+' '+m.year+' — '+m.portes+' portes">'+
+      '<div class="fiche-bar-rect" style="height:'+hp+'px;background:'+col+'"></div>'+
+      '<div class="fiche-bar-lbl">'+MONTHS_FR[parseInt(m.month)-1].slice(0,3)+'</div>'+
+    '</div>';
+  }).join('');
+  // Tableau
+  document.getElementById('fid-cli-fiche-tbody').innerHTML = moisData.map(function(m){
+    var mc2 = m.margePct<0?'color:var(--danger)':m.margePct<4?'color:var(--warning)':'color:var(--success)';
+    return '<tr>'+
+      '<td style="font-weight:600">'+MONTHS_FR[parseInt(m.month)-1]+' '+m.year+'</td>'+
+      '<td style="text-align:right;font-weight:700;color:#2563EB;font-family:var(--mono)">'+m.portes+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono)">'+Math.round(m.ca).toLocaleString('fr-FR')+' EUR</td>'+
+      '<td style="text-align:right;font-family:var(--mono);'+mc2+'">'+Math.round(m.marge).toLocaleString('fr-FR')+' EUR</td>'+
+      '<td style="text-align:right;font-family:var(--mono);font-weight:600;'+mc2+'">'+m.margePct.toFixed(1)+'%</td>'+
+    '</tr>';
+  }).join('');
+  document.getElementById('fid-cli-fiche').style.display = 'flex';
+}
+function closeFicheClient() { document.getElementById('fid-cli-fiche').style.display = 'none'; }
+
+function showClientsInactifs() {
+  var data = buildFidCliData();
+  var inactifs = data.filter(function(c){ return !c.estActif; })
+    .sort(function(a,b){ return b.inactifDepuis-a.inactifDepuis; });
+  var sub = document.getElementById('fid-inactifs-subtitle');
+  if(sub) sub.textContent = inactifs.length+' clients sans activite sur le dernier mois';
+  var tbody = document.getElementById('fid-inactifs-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = inactifs.map(function(c){
+    var mc = c.margePct<0?'color:var(--danger)':c.margePct<4?'color:var(--warning)':'color:var(--success)';
+    var nomEnc2 = c.nom.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return '<tr data-clinomenc="'+nomEnc2+'" style="cursor:pointer">'+
+      '<td style="font-weight:600">'+c.nom+'</td>'+
+      '<td style="text-align:center;font-family:var(--mono)">'+c.inactifDepuis+' mois<br>'+
+        '<span style="font-size:10px;color:var(--muted)">depuis '+fmtMoisFid(c.dernierMois)+'</span></td>'+
+      '<td style="text-align:center;font-size:12px;color:var(--muted)">'+c.anciennete+' mois</td>'+
+      '<td style="text-align:right;font-weight:700;font-family:var(--mono)">'+c.portesTotaux+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono)">'+Math.round(c.caTotal).toLocaleString('fr-FR')+' EUR</td>'+
+      '<td style="text-align:right;font-family:var(--mono);font-weight:600;'+mc+'">'+
+        Math.round(c.margeTotal).toLocaleString('fr-FR')+' EUR ('+c.margePct.toFixed(1)+'%)</td>'+
+    '</tr>';
+  }).join('');
+  // Lignes cliquables
+  tbody.querySelectorAll('tr[data-clinomenc]').forEach(function(row){
+    row.addEventListener('click', function(){
+      var n = row.getAttribute('data-clinomenc').replace(/&amp;/g,'&').replace(/&quot;/g,'"');
+      document.getElementById('fid-inactifs-panel').style.display='none';
+      openFicheClient(n);
+    });
+  });
+  document.getElementById('fid-inactifs-panel').style.display = 'flex';
+}
+
+document.addEventListener('click', function(e) {
+  var f1 = document.getElementById('fid-cli-fiche');
+  if(f1 && e.target===f1) closeFicheClient();
+  var f2 = document.getElementById('fid-inactifs-panel');
+  if(f2 && e.target===f2) f2.style.display='none';
+});
+
 // ======== FIDÉLITÉ ========
 var _fidConsSort = {col:'moisTotal', asc:false};
 var _fidCliSort  = {col:'caTotal',   asc:false};
@@ -2499,15 +2674,30 @@ function buildFidCliData() {
       var ancien  = cl.portesParMois[moisKeys[Math.max(0,moisKeys.length-4)]] || 0;
       evol = recent - ancien;
     }
+    var margeTotal = 0;
+    h.forEach(function(moisHist) {
+      (moisHist.results||[]).forEach(function(r) {
+        if(r.type !== 'matched') return;
+        if((r.client||'').trim() !== cl.nom) return;
+        if((r.facture||0) === 0) return;
+        margeTotal += (r.margeEur||0);
+      });
+    });
+    var margePct  = cl.caTotal > 0 ? (margeTotal / cl.caTotal * 100) : 0;
+    var estActif  = portesActifs > 0;
+    var inactifDepuis = 0;
+    if(!estActif && cl.dernierMois) {
+      var d1i = new Date(cl.dernierMois+'-01');
+      var d2i = new Date(dernierMoisDispo ? dernierMoisDispo+'-01' : new Date());
+      inactifDepuis = (d2i.getFullYear()-d1i.getFullYear())*12+(d2i.getMonth()-d1i.getMonth());
+    }
     return {
-      nom: cl.nom,
-      premierMois: cl.premierMois,
-      anciennete: anciennete,
-      portesActifs: portesActifs,
-      portesTotaux: cl.portesTotaux.size,
-      caTotal: cl.caTotal,
-      evol: evol,
-      portesParMois: cl.portesParMois
+      nom: cl.nom, premierMois: cl.premierMois, dernierMois: cl.dernierMois,
+      anciennete: anciennete, portesActifs: portesActifs,
+      portesTotaux: cl.portesTotaux.size, caTotal: cl.caTotal,
+      margeTotal: margeTotal, margePct: margePct,
+      estActif: estActif, inactifDepuis: inactifDepuis,
+      evol: evol, portesParMois: cl.portesParMois
     };
   });
 }
@@ -2602,8 +2792,9 @@ function renderFideliteConsultants() {
     return;
   }
   tbody.innerHTML = filtered.map(function(c){
+    var nomEnc = c.nom.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     var segColor = c.segment==='0-3'?'#DC2626':c.segment==='3-6'?'#D97706':c.segment==='6-12'?'#2563EB':'var(--brand)';
-    return '<tr>'+
+    return '<tr data-clinomenc="'+nomEnc+'" style="cursor:pointer">'+
       '<td><div style="font-weight:600">'+c.nom+'</div>'+
         (c.commercial?'<div style="font-size:11px;color:var(--muted)">'+c.commercial+'</div>':'')+
       '</td>'+
@@ -2623,6 +2814,12 @@ function renderFideliteConsultants() {
       '</td>'+
     '</tr>';
   }).join('');
+  document.querySelectorAll('#fid-cli-tbody tr[data-clinomenc]').forEach(function(row) {
+    row.addEventListener('click', function() {
+      var n = row.getAttribute('data-clinomenc').replace(/&amp;/g,'&').replace(/&quot;/g,'"');
+      openFicheClient(n);
+    });
+  });
 }
 
 function renderFideliteClients() {
@@ -2661,6 +2858,7 @@ function renderFideliteClients() {
   var maxCA = Math.max.apply(null, filtered.map(function(c){ return c.caTotal; }));
 
   tbody.innerHTML = filtered.map(function(c){
+    var nomEnc = c.nom.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     // Mini sparkline textuelle pour l'évolution portés
     var evolHtml;
     if(c.evol > 0)       evolHtml = '<span style="color:var(--success);font-weight:700">▲ +'+c.evol+'</span>';
@@ -2892,7 +3090,8 @@ function buildRentData() {
 
     var caTotal     = actifs.reduce(function(s,m){ return s+m.ca; }, 0);
     var margeTotal  = actifs.reduce(function(s,m){ return s+m.marge; }, 0);
-    var margePctMoy = actifs.length ? actifs.reduce(function(s,m){ return s+m.margePct; }, 0) / actifs.length : 0;
+    // Marge % = margeTotal / caTotal — seul calcul cohérent
+    var margePctMoy = caTotal > 0 ? (margeTotal / caTotal * 100) : 0;
 
     // TJM moyen : exclure les mois sans TJM (tjm=0)
     var moisAvecTjm = actifs.filter(function(m){ return m.tjm > 0; });
