@@ -2895,6 +2895,13 @@ function renderFideliteClients() {
       '<td style="text-align:right;font-weight:600;font-family:var(--mono)">'+Math.round(c.caTotal).toLocaleString('fr-FR')+' €</td>'+
     '</tr>';
   }).join('');
+  // Attacher les clics sur les lignes clients
+  document.querySelectorAll('#fid-cli-tbody tr[data-clinomenc]').forEach(function(row) {
+    row.addEventListener('click', function() {
+      var n = row.getAttribute('data-clinomenc').replace(/&amp;/g,'&').replace(/&quot;/g,'"');
+      openFicheClient(n);
+    });
+  });
 }
 
 // ======== FICHE CONSULTANT ========
