@@ -2702,9 +2702,14 @@ function buildRentData() {
     var moisAvecTjm = actifs.filter(function(m){ return m.tjm > 0; });
     var tjmMoy = moisAvecTjm.length ? moisAvecTjm.reduce(function(s,m){ return s+m.tjm; }, 0) / moisAvecTjm.length : 0;
 
-    // Statut global = statut du dernier mois actif
-    var dernierMois = actifs.slice().sort(function(a,b){ return b.mois.localeCompare(a.mois); })[0];
-    var statut = dernierMois ? dernierMois.statut : '';
+    // Statut global = calculé sur la marge % TOTALE (margeTotal / caTotal)
+    var margePctTotale = caTotal > 0 ? (margeTotal / caTotal * 100) : null;
+    var statut;
+    if(margePctTotale === null)    statut = 'no_cost';
+    else if(margePctTotale < 0)    statut = 'alerte';
+    else if(margePctTotale < 4)    statut = 'insuffisant';
+    else if(margePctTotale <= 9)   statut = 'ok';
+    else                           statut = 'superperf';
 
     result.push({
       normNom:      norm(c.nom),
