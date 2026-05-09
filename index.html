@@ -1646,7 +1646,7 @@ select {
 <!-- ======== FIN TAB FIDÉLITÉ ======== -->
 
 <!-- ======== FICHE CONSULTANT ======== -->
-<div id="rent-fiche">
+<div id="rent-fiche" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 16px;backdrop-filter:blur(4px)">
   <div class="fiche-inner">
     <button class="fiche-close" onclick="closeFicheConsultant()">✕</button>
     <div class="fiche-header">
@@ -2485,7 +2485,7 @@ function openFicheClient(nomClient) {
       '<td style="text-align:right;font-family:var(--mono);font-weight:600;'+mc2+'">'+m.margePct.toFixed(1)+'%</td>'+
     '</tr>';
   }).join('');
-  document.getElementById('fid-cli-fiche').style.display = 'flex';
+  document.getElementById('fid-cli-fiche').style.display = 'block';
 }
 function closeFicheClient() { document.getElementById('fid-cli-fiche').style.display = 'none'; }
 
@@ -2856,7 +2856,9 @@ function renderFideliteClients() {
   var data = buildFidCliData();
   var search = (document.getElementById('fid-cli-search')||{}).value || '';
   var filtered = data.filter(function(c){
-    return !search || c.nom.toLowerCase().indexOf(search.toLowerCase()) >= 0;
+    if(search && c.nom.toLowerCase().indexOf(search.toLowerCase()) < 0) return false;
+    if(_fidCliSeg && getCliSegment(c.anciennete) !== _fidCliSeg) return false;
+    return true;
   });
   filtered.sort(function(a,b){ return b.caTotal - a.caTotal; });
   var statsEl = document.getElementById('fid-cli-seg-stats');
@@ -2944,8 +2946,8 @@ function renderFideliteClients() {
     var ancBadgeColor = c.anciennete>=24?'var(--brand)':c.anciennete>=12?'var(--success)':'var(--muted)';
     var barW = maxCA>0 ? Math.round(c.caTotal/maxCA*80) : 0;
 
-    return '<tr>'+
-      '<td>'+
+    var nomEnc = c.nom.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return '<tr style="cursor:pointer" data-clinomenc="'+nomEnc+'">'+'<td>'+
         '<div style="font-weight:600">'+c.nom+'</div>'+
         '<div style="height:4px;background:var(--border);border-radius:2px;margin-top:4px;width:120px;overflow:hidden">'+
           '<div style="height:100%;width:'+barW+'%;background:var(--brand);border-radius:2px"></div></div>'+
