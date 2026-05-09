@@ -314,6 +314,8 @@ select {
   <button class="nav-tab" onclick="switchTab('client',this)">🏢 Analyse Client</button>
   <button class="nav-tab" onclick="switchTab('referentiel',this)">📚 Référentiel</button>
   <button class="nav-tab" onclick="switchTab('dictionnaire',this)">🔗 Corrections</button>
+  <button class="nav-tab" onclick="switchTab('rentabilite',this)">💰 Rentabilité</button>
+  <button class="nav-tab" onclick="switchTab('fidelite',this)">🤝 Fidélité</button>
   <button class="nav-tab" onclick="switchTab('taches',this)">✅ Taches <span class="tab-badge" id="badge-taches" style="display:none">0</span></button>
 </div>
 
@@ -1436,6 +1438,174 @@ select {
   </div>
 </div>
 
+
+<!-- ======== TAB RENTABILITÉ ======== -->
+<div id="tab-rentabilite" class="tab-pane">
+<style>
+.rent-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.rent-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-xs)}
+.rent-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.rent-tbl th{padding:9px 13px;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--brand);background:#F5F3FF;border-bottom:1.5px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+.rent-tbl th:hover{background:#EDE8FF}
+.rent-tbl th .sort-arrow{margin-left:4px;opacity:.4;font-size:9px}
+.rent-tbl th.sorted .sort-arrow{opacity:1}
+.rent-tbl td{padding:9px 13px;border-bottom:1px solid #F0EDF9;vertical-align:middle}
+.rent-tbl tr:last-child td{border-bottom:none}
+.rent-tbl tr:hover td{background:#FAFAFE}
+.rent-tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:600}
+.rent-bar{height:5px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:3px}
+.rent-bar-fill{height:100%;border-radius:3px;transition:width .3s}
+</style>
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+  <div>
+    <div style="font-size:18px;font-weight:700">Rentabilité par consultant</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:2px" id="rent-subtitle">—</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <input type="text" id="rent-search" oninput="renderRentabilite()" placeholder="Rechercher un consultant…" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:12.5px;font-family:var(--font);width:220px">
+    <select id="rent-filter-commercial" onchange="renderRentabilite()" style="padding:7px 24px 7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:12.5px;font-family:var(--font);background:#FAFAFA">
+      <option value="">Tous les commerciaux</option>
+    </select>
+    <select id="rent-filter-statut" onchange="renderRentabilite()" style="padding:7px 24px 7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:12.5px;font-family:var(--font);background:#FAFAFA">
+      <option value="">Tous statuts</option>
+      <option value="superperf">⭐ Surperf</option>
+      <option value="ok">🟢 OK</option>
+      <option value="insuffisant">🟠 Insuffisant</option>
+      <option value="alerte">🔴 Alerte</option>
+    </select>
+  </div>
+</div>
+
+<!-- Métriques globales -->
+<div class="rent-grid" id="rent-metrics"></div>
+
+<!-- Tableau -->
+<div class="rent-table-wrap">
+  <table class="rent-tbl" id="rent-tbl">
+    <thead>
+      <tr>
+        <th onclick="rentSort('nom')" data-col="nom">Consultant <span class="sort-arrow">↕</span></th>
+        <th onclick="rentSort('commercial')" data-col="commercial">Commercial <span class="sort-arrow">↕</span></th>
+        <th onclick="rentSort('nbMoisActifs')" data-col="nbMoisActifs">Mois actifs <span class="sort-arrow">↕</span></th>
+        <th onclick="rentSort('debut')" data-col="debut">1er mois <span class="sort-arrow">↕</span></th>
+        <th onclick="rentSort('fin')" data-col="fin">Dernier mois <span class="sort-arrow">↕</span></th>
+        <th onclick="rentSort('caTotal')" data-col="caTotal" style="text-align:right">CA total <span class="sort-arrow">↕</span></th>
+        <th onclick="rentSort('margeTotal')" data-col="margeTotal" style="text-align:right">Marge totale <span class="sort-arrow">↕</span></th>
+        <th onclick="rentSort('margePctMoy')" data-col="margePctMoy" style="text-align:right">Marge % moy. <span class="sort-arrow">↕</span></th>
+        <th onclick="rentSort('tjmMoy')" data-col="tjmMoy" style="text-align:right">TJM moy. <span class="sort-arrow">↕</span></th>
+        <th onclick="rentSort('statut')" data-col="statut">Statut <span class="sort-arrow">↕</span></th>
+      </tr>
+    </thead>
+    <tbody id="rent-tbody"></tbody>
+  </table>
+</div>
+<div style="font-size:11px;color:var(--muted);margin-top:8px;padding:0 2px">
+  * Mois inactifs exclus des moyennes (coût ≤ 250€ = mutuelle uniquement)
+</div>
+
+</div>
+<!-- ======== FIN TAB RENTABILITÉ ======== -->
+
+
+<!-- ======== TAB FIDÉLITÉ ======== -->
+<div id="tab-fidelite" class="tab-pane">
+<style>
+.fid-tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px}
+.fid-tab{padding:10px 20px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-2px;font-family:var(--font);transition:color .15s}
+.fid-tab:hover{color:var(--text)}
+.fid-tab.active{color:var(--brand);border-bottom-color:var(--brand)}
+.fid-pane{display:none}.fid-pane.active{display:block}
+.fid-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.fid-segment{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.fid-seg{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;box-shadow:var(--shadow-xs)}
+.fid-seg-num{font-size:28px;font-weight:700;font-family:var(--mono);line-height:1}
+.fid-seg-lbl{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
+.fid-seg-pct{font-size:12px;font-weight:600;color:var(--brand);margin-top:3px}
+.fid-bar-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;box-shadow:var(--shadow-xs)}
+.fid-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.fid-bar-lbl{font-size:12px;font-weight:600;min-width:160px;color:var(--text)}
+.fid-bar-track{flex:1;height:10px;background:var(--border);border-radius:5px;overflow:hidden}
+.fid-bar-fill{height:100%;border-radius:5px;transition:width .4s}
+.fid-bar-val{font-size:12px;font-family:var(--mono);font-weight:600;min-width:60px;text-align:right;color:var(--text)}
+.fid-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.fid-tbl th{padding:9px 13px;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--brand);background:#F5F3FF;border-bottom:1.5px solid var(--border);white-space:nowrap;cursor:pointer}
+.fid-tbl th:hover{background:#EDE8FF}
+.fid-tbl td{padding:9px 13px;border-bottom:1px solid #F0EDF9;vertical-align:middle}
+.fid-tbl tr:last-child td{border-bottom:none}
+.fid-tbl tr:hover td{background:#FAFAFE}
+.fid-pill{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:600}
+</style>
+
+<div style="font-size:18px;font-weight:700;margin-bottom:4px">Fidélité</div>
+<div style="font-size:12px;color:var(--muted);margin-bottom:16px" id="fid-subtitle">—</div>
+
+<!-- Sous-onglets -->
+<div class="fid-tabs">
+  <button class="fid-tab active" onclick="fidSwitchTab('consultants',this)">👤 Consultants</button>
+  <button class="fid-tab" onclick="fidSwitchTab('clients',this)">🏢 Clients</button>
+</div>
+
+<!-- ── CONSULTANTS ── -->
+<div id="fid-consultants" class="fid-pane active">
+  <div class="fid-kpis" id="fid-cons-kpis"></div>
+  <div class="fid-segment" id="fid-cons-segments"></div>
+  <div class="fid-bar-wrap">
+    <div style="font-size:13px;font-weight:700;margin-bottom:14px;color:var(--text)">Répartition par durée de portage</div>
+    <div id="fid-cons-bars"></div>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+    <div style="font-size:13px;font-weight:700">Liste des consultants</div>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="fid-cons-search" oninput="renderFideliteConsultants()" placeholder="Rechercher…" style="padding:6px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;font-family:var(--font);width:180px">
+      <select id="fid-cons-filter" onchange="renderFideliteConsultants()" style="padding:6px 24px 6px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;font-family:var(--font);background:#FAFAFA">
+        <option value="">Toutes durées</option>
+        <option value="0-3">Moins de 3 mois</option>
+        <option value="3-6">3 à 6 mois</option>
+        <option value="6-12">6 à 12 mois</option>
+        <option value="12+">Plus de 12 mois</option>
+        <option value="revenu">Revenu après sortie</option>
+      </select>
+    </div>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-xs)">
+    <table class="fid-tbl"><thead><tr>
+      <th>Consultant</th>
+      <th style="text-align:center">Passages</th>
+      <th style="text-align:center">Mois actifs total</th>
+      <th style="text-align:center">Durée moy./passage</th>
+      <th>1ère entrée</th>
+      <th>Dernière activité</th>
+      <th style="text-align:center">Statut</th>
+    </tr></thead>
+    <tbody id="fid-cons-tbody"></tbody></table>
+  </div>
+</div>
+
+<!-- ── CLIENTS ── -->
+<div id="fid-clients" class="fid-pane">
+  <div class="fid-kpis" id="fid-cli-kpis"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+    <div style="font-size:13px;font-weight:700">Historique clients</div>
+    <input type="text" id="fid-cli-search" oninput="renderFideliteClients()" placeholder="Rechercher un client…" style="padding:6px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;font-family:var(--font);width:200px">
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-xs)">
+    <table class="fid-tbl"><thead><tr>
+      <th>Client</th>
+      <th style="text-align:center">Depuis</th>
+      <th style="text-align:center">Ancienneté</th>
+      <th style="text-align:right">Portés actifs</th>
+      <th style="text-align:right">Total portés (historique)</th>
+      <th style="text-align:center">Évolution portés</th>
+      <th style="text-align:right">CA total</th>
+    </tr></thead>
+    <tbody id="fid-cli-tbody"></tbody></table>
+  </div>
+</div>
+
+</div>
+<!-- ======== FIN TAB FIDÉLITÉ ======== -->
+
 <script>
 const STORAGE_KEY = 'seven_portage_paie_v3';
 const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -1527,6 +1697,8 @@ function switchTab(name, btn) {
   if(name==='pilotage') buildDashboard();
   if(name==='axes') renderAxes();
   if(name==='taches') { tkRender(); }
+  if(name==='rentabilite') { renderRentabilite(); }
+  if(name==='fidelite') { renderFidelite(); }
   if(name==='client') renderClient();
 }
 
@@ -2103,6 +2275,596 @@ function odAutoSync() {
   }, 1200);
 }
 
+
+// ======== FIDÉLITÉ ========
+var _fidConsSort = {col:'moisTotal', asc:false};
+var _fidCliSort  = {col:'caTotal',   asc:false};
+var _fidTab = 'consultants';
+var SEUIL_INACTIF_FID = 250;
+
+function fidSwitchTab(tab, btn) {
+  _fidTab = tab;
+  document.querySelectorAll('.fid-tab').forEach(function(b){ b.classList.remove('active'); });
+  document.querySelectorAll('.fid-pane').forEach(function(p){ p.classList.remove('active'); });
+  if(btn) btn.classList.add('active');
+  var pane = document.getElementById('fid-'+tab);
+  if(pane) pane.classList.add('active');
+  if(tab==='consultants') renderFideliteConsultants();
+  else renderFideliteClients();
+}
+
+function buildFidConsData() {
+  var h = [];
+  try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) {}
+  // Trier les mois chronologiquement
+  h.sort(function(a,b){ return (a.year+a.month).localeCompare(b.year+b.month); });
+
+  var map = {}; // normNom → {passages:[{debut,fin,moisActifs}], enCours, ...}
+
+  h.forEach(function(moisData) {
+    var moisKey = moisData.year + '-' + ('0'+moisData.month).slice(-2);
+    (moisData.results||[]).forEach(function(r) {
+      if(r.type !== 'matched') return;
+      var normNom = norm(r.nom || r.crmNom || '');
+      if(!normNom) return;
+      var actif = (r.coutTotal||0) > SEUIL_INACTIF_FID && (r.facture||0) > 0;
+      if(!actif) return; // ignorer mois mutuelle seulement
+
+      if(!map[normNom]) {
+        map[normNom] = {
+          nom: r.nom || r.crmNom || normNom,
+          passages: [],       // [{debut, fin, mois:[]}]
+          lastMois: null,
+          commercial: r.commercial || ''
+        };
+      }
+      var c = map[normNom];
+      // Si pas de passage en cours ou gap > 2 mois → nouveau passage
+      var GAP_MAX = 2; // mois d'absence max pour considérer même passage
+      var lastPassage = c.passages[c.passages.length-1];
+      var isGap = false;
+      if(lastPassage) {
+        var lastMoisKey = lastPassage.mois[lastPassage.mois.length-1];
+        // Calculer nb mois entre lastMoisKey et moisKey
+        var d1 = new Date(lastMoisKey+'-01');
+        var d2 = new Date(moisKey+'-01');
+        var diffMois = (d2.getFullYear()-d1.getFullYear())*12 + (d2.getMonth()-d1.getMonth());
+        if(diffMois > GAP_MAX+1) isGap = true;
+      }
+      if(!lastPassage || isGap) {
+        c.passages.push({debut: moisKey, fin: moisKey, mois: []});
+        lastPassage = c.passages[c.passages.length-1];
+      }
+      lastPassage.mois.push(moisKey);
+      lastPassage.fin = moisKey;
+      c.lastMois = moisKey;
+      if(r.commercial) c.commercial = r.commercial;
+    });
+  });
+
+  // Calculer les métriques
+  var result = [];
+  var dernierMoisDispo = h.length ? h[h.length-1].year + '-' + ('0'+h[h.length-1].month).slice(-2) : '';
+
+  Object.values(map).forEach(function(c) {
+    if(!c.passages.length) return;
+    var moisTotal = c.passages.reduce(function(s,p){ return s+p.mois.length; }, 0);
+    var nbPassages = c.passages.length;
+    var dureeMoyPassage = nbPassages ? moisTotal / nbPassages : 0;
+    var premierMois = c.passages[0].debut;
+    var dernierMoisActif = c.lastMois;
+    var estActif = dernierMoisActif === dernierMoisDispo;
+    var revenu = nbPassages > 1;
+
+    // Segment de durée (basé sur mois total)
+    var segment;
+    if(moisTotal < 3)       segment = '0-3';
+    else if(moisTotal < 6)  segment = '3-6';
+    else if(moisTotal < 12) segment = '6-12';
+    else                    segment = '12+';
+
+    result.push({
+      normNom: norm(c.nom),
+      nom: c.nom,
+      commercial: c.commercial,
+      nbPassages: nbPassages,
+      moisTotal: moisTotal,
+      dureeMoyPassage: dureeMoyPassage,
+      premierMois: premierMois,
+      dernierMois: dernierMoisActif,
+      estActif: estActif,
+      revenu: revenu,
+      segment: segment
+    });
+  });
+  return result;
+}
+
+function buildFidCliData() {
+  var h = [];
+  try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) {}
+  h.sort(function(a,b){ return (a.year+a.month).localeCompare(b.year+b.month); });
+
+  var map = {}; // nomClient → données
+  var dernierMoisDispo = h.length ? h[h.length-1].year + '-' + ('0'+h[h.length-1].month).slice(-2) : '';
+
+  h.forEach(function(moisData) {
+    var moisKey = moisData.year + '-' + ('0'+moisData.month).slice(-2);
+    var portesActifsCeMois = {};
+
+    (moisData.results||[]).forEach(function(r) {
+      if(r.type !== 'matched') return;
+      var client = (r.client||'').trim();
+      if(!client || client === '' || client === '—') return;
+      var actif = (r.coutTotal||0) > SEUIL_INACTIF_FID && (r.facture||0) > 0;
+      if(!actif) return;
+
+      if(!map[client]) {
+        map[client] = {
+          nom: client,
+          premierMois: moisKey,
+          dernierMois: moisKey,
+          caTotal: 0,
+          portesTotaux: new Set(),    // tous les portés distincts
+          portesParMois: {},          // moisKey → nb portés actifs
+          consultants: new Set()
+        };
+      }
+      var cl = map[client];
+      if(moisKey < cl.premierMois) cl.premierMois = moisKey;
+      if(moisKey > cl.dernierMois) cl.dernierMois = moisKey;
+      cl.caTotal += (r.facture||0);
+      var nomCons = norm(r.nom || r.crmNom || '');
+      cl.portesTotaux.add(nomCons);
+      cl.consultants.add(nomCons);
+      if(!cl.portesParMois[moisKey]) cl.portesParMois[moisKey] = 0;
+      cl.portesParMois[moisKey]++;
+    });
+  });
+
+  return Object.values(map).map(function(cl) {
+    // Ancienneté en mois
+    var d1 = new Date(cl.premierMois+'-01');
+    var d2 = new Date(dernierMoisDispo ? dernierMoisDispo+'-01' : new Date());
+    var anciennete = (d2.getFullYear()-d1.getFullYear())*12 + (d2.getMonth()-d1.getMonth());
+    // Portés actifs = nb portés sur le dernier mois disponible
+    var portesActifs = cl.portesParMois[dernierMoisDispo] || 0;
+    // Évolution : comparer dernier mois vs il y a 3 mois
+    var moisKeys = Object.keys(cl.portesParMois).sort();
+    var evol = 0;
+    if(moisKeys.length >= 2) {
+      var recent  = cl.portesParMois[moisKeys[moisKeys.length-1]] || 0;
+      var ancien  = cl.portesParMois[moisKeys[Math.max(0,moisKeys.length-4)]] || 0;
+      evol = recent - ancien;
+    }
+    return {
+      nom: cl.nom,
+      premierMois: cl.premierMois,
+      anciennete: anciennete,
+      portesActifs: portesActifs,
+      portesTotaux: cl.portesTotaux.size,
+      caTotal: cl.caTotal,
+      evol: evol,
+      portesParMois: cl.portesParMois
+    };
+  });
+}
+
+function fmtMoisFid(m) {
+  if(!m) return '—';
+  var p = m.split('-');
+  return MONTHS_FR[parseInt(p[1])-1].slice(0,3)+' '+p[0];
+}
+
+function renderFidelite() {
+  // Mettre à jour le sous-titre
+  var h = [];
+  try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) {}
+  var sub = document.getElementById('fid-subtitle');
+  if(sub) sub.textContent = h.length + ' mois analysés · ' + (h.length?h[0].year:'—') + ' – ' + (h.length?h[h.length-1].year:'—');
+
+  if(_fidTab === 'clients') renderFideliteClients();
+  else renderFideliteConsultants();
+}
+
+function renderFideliteConsultants() {
+  var data = buildFidConsData();
+  var search = (document.getElementById('fid-cons-search')||{}).value || '';
+  var filter = (document.getElementById('fid-cons-filter')||{}).value || '';
+
+  var filtered = data.filter(function(c) {
+    if(search && c.nom.toLowerCase().indexOf(search.toLowerCase()) < 0) return false;
+    if(filter === 'revenu' && !c.revenu) return false;
+    if(filter && filter !== 'revenu' && c.segment !== filter) return false;
+    return true;
+  });
+
+  filtered.sort(function(a,b){ return b.moisTotal - a.moisTotal; });
+
+  // KPIs
+  var total = data.length;
+  var actifs = data.filter(function(c){ return c.estActif; }).length;
+  var revenu = data.filter(function(c){ return c.revenu; }).length;
+  var moyDuree = total ? data.reduce(function(s,c){ return s+c.moisTotal; },0)/total : 0;
+
+  var kpis = document.getElementById('fid-cons-kpis');
+  if(kpis) kpis.innerHTML = [
+    {lbl:'Total consultants',    val:total,                    sub:'historique',    cls:''},
+    {lbl:'Actuellement actifs',  val:actifs,                   sub:((total)?((actifs/total*100).toFixed(0)+'% du total'):'N/A'), cls:'ok'},
+    {lbl:'Durée moyenne',        val:moyDuree.toFixed(1)+' mois', sub:'par consultant',    cls:''},
+    {lbl:'Retour après sortie',  val:revenu,                   sub:((total)?((revenu/total*100).toFixed(0)+'% retournent'):'N/A'), cls:'warn'}
+  ].map(function(m){
+    return '<div class="metric"><div class="metric-label">'+m.lbl+'</div>'+
+      '<div class="metric-val'+(m.cls?' '+m.cls:'')+'">'+m.val+'</div>'+
+      '<div class="metric-sub">'+m.sub+'</div></div>';
+  }).join('');
+
+  // Segments
+  var segs = [
+    {key:'0-3',  lbl:'< 3 mois',     color:'#DC2626'},
+    {key:'3-6',  lbl:'3 – 6 mois',   color:'#D97706'},
+    {key:'6-12', lbl:'6 – 12 mois',  color:'#2563EB'},
+    {key:'12+',  lbl:'> 12 mois',    color:'var(--brand)'}
+  ];
+  var segEl = document.getElementById('fid-cons-segments');
+  if(segEl) segEl.innerHTML = segs.map(function(s){
+    var n = data.filter(function(c){ return c.segment===s.key; }).length;
+    var pct = total ? (n/total*100).toFixed(0) : 0;
+    return '<div class="fid-seg">'+
+      '<div class="fid-seg-num" style="color:'+s.color+'">'+n+'</div>'+
+      '<div class="fid-seg-lbl">'+s.lbl+'</div>'+
+      '<div class="fid-seg-pct">'+pct+'%</div>'+
+    '</div>';
+  }).join('');
+
+  // Barres
+  var barsEl = document.getElementById('fid-cons-bars');
+  if(barsEl) {
+    var maxN = Math.max.apply(null, segs.map(function(s){ return data.filter(function(c){ return c.segment===s.key; }).length; }));
+    barsEl.innerHTML = segs.map(function(s){
+      var n = data.filter(function(c){ return c.segment===s.key; }).length;
+      var w = maxN ? Math.round(n/maxN*100) : 0;
+      return '<div class="fid-bar-row">'+
+        '<div class="fid-bar-lbl">'+s.lbl+'</div>'+
+        '<div class="fid-bar-track"><div class="fid-bar-fill" style="width:'+w+'%;background:'+s.color+'"></div></div>'+
+        '<div class="fid-bar-val">'+n+' <span style="color:var(--muted);font-weight:400;font-size:11px">('+( total?(n/total*100).toFixed(0):0)+'%)</span></div>'+
+      '</div>';
+    }).join('');
+  }
+
+  // Tableau
+  var tbody = document.getElementById('fid-cons-tbody');
+  if(!tbody) return;
+  if(!filtered.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">Aucun consultant</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(function(c){
+    var segColor = c.segment==='0-3'?'#DC2626':c.segment==='3-6'?'#D97706':c.segment==='6-12'?'#2563EB':'var(--brand)';
+    return '<tr>'+
+      '<td><div style="font-weight:600">'+c.nom+'</div>'+
+        (c.commercial?'<div style="font-size:11px;color:var(--muted)">'+c.commercial+'</div>':'')+
+      '</td>'+
+      '<td style="text-align:center">'+
+        '<span style="font-weight:700;color:var(--brand)">'+c.nbPassages+'</span>'+
+        (c.revenu?'<span class="fid-pill" style="background:#EDE8FF;color:var(--brand);margin-left:5px;font-size:10px">Revenu</span>':'')+
+      '</td>'+
+      '<td style="text-align:center;font-weight:700;font-family:var(--mono)">'+c.moisTotal+'</td>'+
+      '<td style="text-align:center;font-family:var(--mono)">'+c.dureeMoyPassage.toFixed(1)+' mois</td>'+
+      '<td style="font-size:12px;color:var(--muted)">'+fmtMoisFid(c.premierMois)+'</td>'+
+      '<td style="font-size:12px;color:var(--muted)">'+fmtMoisFid(c.dernierMois)+'</td>'+
+      '<td>'+
+        (c.estActif
+          ? '<span class="fid-pill" style="background:var(--ok-bg);color:var(--success)">✓ Actif</span>'
+          : '<span class="fid-pill" style="background:#F5F3FF;color:var(--muted)">Sorti</span>')+
+        '<span class="fid-pill" style="background:'+segColor+'22;color:'+segColor+';margin-left:4px">'+c.segment+'</span>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function renderFideliteClients() {
+  var data = buildFidCliData();
+  var search = (document.getElementById('fid-cli-search')||{}).value || '';
+  var filtered = data.filter(function(c){
+    return !search || c.nom.toLowerCase().indexOf(search.toLowerCase()) >= 0;
+  });
+  filtered.sort(function(a,b){ return b.caTotal - a.caTotal; });
+
+  // KPIs
+  var total = data.length;
+  var actifs = data.filter(function(c){ return c.portesActifs > 0; }).length;
+  var totalPortes = data.reduce(function(s,c){ return s+c.portesTotaux; }, 0);
+  var moyAnc = total ? data.reduce(function(s,c){ return s+c.anciennete; }, 0)/total : 0;
+
+  var kpis = document.getElementById('fid-cli-kpis');
+  if(kpis) kpis.innerHTML = [
+    {lbl:'Clients distincts',   val:total,                          sub:'historique',     cls:''},
+    {lbl:'Clients actifs',      val:actifs,                         sub:((total)?((actifs/total*100).toFixed(0)+'% du total'):'N/A'), cls:'ok'},
+    {lbl:'Ancienneté moyenne',  val:moyAnc.toFixed(0)+' mois',     sub:'depuis 1ère mission',    cls:''},
+    {lbl:'Portés (historique)', val:totalPortes,                    sub:'tous clients confondus', cls:''}
+  ].map(function(m){
+    return '<div class="metric"><div class="metric-label">'+m.lbl+'</div>'+
+      '<div class="metric-val'+(m.cls?' '+m.cls:'')+'">'+m.val+'</div>'+
+      '<div class="metric-sub">'+m.sub+'</div></div>';
+  }).join('');
+
+  // Tableau
+  var tbody = document.getElementById('fid-cli-tbody');
+  if(!tbody) return;
+  if(!filtered.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">Aucun client</td></tr>';
+    return;
+  }
+  var maxCA = Math.max.apply(null, filtered.map(function(c){ return c.caTotal; }));
+
+  tbody.innerHTML = filtered.map(function(c){
+    // Mini sparkline textuelle pour l'évolution portés
+    var evolHtml;
+    if(c.evol > 0)       evolHtml = '<span style="color:var(--success);font-weight:700">▲ +'+c.evol+'</span>';
+    else if(c.evol < 0)  evolHtml = '<span style="color:var(--danger);font-weight:700">▼ '+c.evol+'</span>';
+    else                 evolHtml = '<span style="color:var(--muted)">= Stable</span>';
+
+    var ancBadgeColor = c.anciennete>=24?'var(--brand)':c.anciennete>=12?'var(--success)':'var(--muted)';
+    var barW = maxCA>0 ? Math.round(c.caTotal/maxCA*80) : 0;
+
+    return '<tr>'+
+      '<td>'+
+        '<div style="font-weight:600">'+c.nom+'</div>'+
+        '<div style="height:4px;background:var(--border);border-radius:2px;margin-top:4px;width:120px;overflow:hidden">'+
+          '<div style="height:100%;width:'+barW+'%;background:var(--brand);border-radius:2px"></div></div>'+
+      '</td>'+
+      '<td style="text-align:center;font-size:12px;color:var(--muted)">'+fmtMoisFid(c.premierMois)+'</td>'+
+      '<td style="text-align:center">'+
+        '<span style="font-weight:700;color:'+ancBadgeColor+';font-family:var(--mono)">'+c.anciennete+'</span>'+
+        '<span style="font-size:11px;color:var(--muted)"> mois</span>'+
+      '</td>'+
+      '<td style="text-align:right;font-weight:700;font-family:var(--mono);color:var(--brand)">'+c.portesActifs+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono)">'+c.portesTotaux+'</td>'+
+      '<td style="text-align:center">'+evolHtml+'</td>'+
+      '<td style="text-align:right;font-weight:600;font-family:var(--mono)">'+Math.round(c.caTotal).toLocaleString('fr-FR')+' €</td>'+
+    '</tr>';
+  }).join('');
+}
+
+// ======== RENTABILITÉ PAR CONSULTANT ========
+var _rentSort = {col: 'caTotal', asc: false};
+var SEUIL_INACTIF = 250; // coût ≤ 250€ → mois mutuelle seulement, exclu des moyennes
+
+function buildRentData() {
+  var h = [];
+  try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) {}
+
+  // Agréger par consultant normalisé
+  var map = {}; // normNom → données agrégées
+
+  h.forEach(function(moisData) {
+    var year  = moisData.year;
+    var month = moisData.month;
+    var moisKey = year + '-' + month;
+
+    (moisData.results||[]).forEach(function(r) {
+      if(r.type !== 'matched') return;
+
+      var normNom = norm(r.nom || r.crmNom || '');
+      if(!normNom) return;
+
+      if(!map[normNom]) {
+        map[normNom] = {
+          nom:        r.nom || r.crmNom || normNom,
+          commercial: r.commercial || '',
+          client:     r.client || '',
+          metier:     r.metier || '',
+          moisActifs:  [],
+          moisInactifs:[],
+          debut: moisKey,
+          fin:   moisKey
+        };
+      }
+
+      var c = map[normNom];
+      // Mettre à jour 1er/dernier mois
+      if(moisKey < c.debut) c.debut = moisKey;
+      if(moisKey > c.fin)   c.fin   = moisKey;
+
+      // Identifier si mois actif ou inactif (mutuelle seulement)
+      var coutMois = r.coutTotal || 0;
+      if(coutMois <= SEUIL_INACTIF) {
+        c.moisInactifs.push(moisKey);
+      } else {
+        c.moisActifs.push({
+          mois:      moisKey,
+          ca:        r.facture    || 0,
+          marge:     r.margeEur   || 0,
+          margePct:  r.margePct   || 0,
+          tjm:       r.tjm        || 0,
+          cout:      coutMois,
+          statut:    r.status     || ''
+        });
+      }
+      // Mettre à jour commercial si plus récent
+      if(r.commercial) c.commercial = r.commercial;
+      if(r.client)     c.client     = r.client;
+    });
+  });
+
+  // Calculer les agrégats
+  var result = [];
+  Object.values(map).forEach(function(c) {
+    var actifs = c.moisActifs;
+    if(!actifs.length) return; // jamais de mois actif → ignorer
+
+    var caTotal     = actifs.reduce(function(s,m){ return s+m.ca; }, 0);
+    var margeTotal  = actifs.reduce(function(s,m){ return s+m.marge; }, 0);
+    var margePctMoy = actifs.length ? actifs.reduce(function(s,m){ return s+m.margePct; }, 0) / actifs.length : 0;
+
+    // TJM moyen : exclure les mois sans TJM (tjm=0)
+    var moisAvecTjm = actifs.filter(function(m){ return m.tjm > 0; });
+    var tjmMoy = moisAvecTjm.length ? moisAvecTjm.reduce(function(s,m){ return s+m.tjm; }, 0) / moisAvecTjm.length : 0;
+
+    // Statut global = statut du dernier mois actif
+    var dernierMois = actifs.slice().sort(function(a,b){ return b.mois.localeCompare(a.mois); })[0];
+    var statut = dernierMois ? dernierMois.statut : '';
+
+    result.push({
+      normNom:      norm(c.nom),
+      nom:          c.nom,
+      commercial:   c.commercial,
+      client:       c.client,
+      metier:       c.metier,
+      nbMoisActifs: actifs.length,
+      nbMoisInactifs: c.moisInactifs.length,
+      debut:        c.debut,
+      fin:          c.fin,
+      caTotal:      caTotal,
+      margeTotal:   margeTotal,
+      margePctMoy:  margePctMoy,
+      tjmMoy:       tjmMoy,
+      statut:       statut
+    });
+  });
+
+  return result;
+}
+
+function rentSort(col) {
+  if(_rentSort.col === col) {
+    _rentSort.asc = !_rentSort.asc;
+  } else {
+    _rentSort.col = col;
+    _rentSort.asc = col === 'nom' || col === 'debut';
+  }
+  renderRentabilite();
+}
+
+function renderRentabilite() {
+  var data = buildRentData();
+
+  // Filtres
+  var search     = (document.getElementById('rent-search')||{}).value || '';
+  var commercial = (document.getElementById('rent-filter-commercial')||{}).value || '';
+  var statut     = (document.getElementById('rent-filter-statut')||{}).value || '';
+
+  var filtered = data.filter(function(c) {
+    if(search && c.nom.toLowerCase().indexOf(search.toLowerCase()) < 0) return false;
+    if(commercial && c.commercial !== commercial) return false;
+    if(statut && c.statut !== statut) return false;
+    return true;
+  });
+
+  // Tri
+  var col = _rentSort.col;
+  filtered.sort(function(a,b) {
+    var va = a[col], vb = b[col];
+    if(typeof va === 'string') va = va.toLowerCase();
+    if(typeof vb === 'string') vb = vb.toLowerCase();
+    if(va < vb) return _rentSort.asc ? -1 : 1;
+    if(va > vb) return _rentSort.asc ?  1 : -1;
+    return 0;
+  });
+
+  // Peupler le filtre commercial
+  var comSel = document.getElementById('rent-filter-commercial');
+  if(comSel && comSel.options.length <= 1) {
+    var coms = [...new Set(data.map(function(c){ return c.commercial; }).filter(Boolean))].sort();
+    coms.forEach(function(c) {
+      var o = document.createElement('option');
+      o.value = o.textContent = c;
+      comSel.appendChild(o);
+    });
+  }
+
+  // Sous-titre
+  var sub = document.getElementById('rent-subtitle');
+  if(sub) sub.textContent = filtered.length + ' consultant' + (filtered.length>1?'s':'') + ' · ' + data.length + ' au total';
+
+  // Métriques globales
+  var totalCA    = filtered.reduce(function(s,c){ return s+c.caTotal; }, 0);
+  var totalMarge = filtered.reduce(function(s,c){ return s+c.margeTotal; }, 0);
+  var avgMargePct= filtered.length ? filtered.reduce(function(s,c){ return s+c.margePctMoy; }, 0) / filtered.length : 0;
+  var avgTjm     = filtered.filter(function(c){ return c.tjmMoy>0; });
+  var avgTjmVal  = avgTjm.length ? avgTjm.reduce(function(s,c){ return s+c.tjmMoy; }, 0) / avgTjm.length : 0;
+
+  var mc = avgMargePct < 0 ? 'danger' : avgMargePct < 4 ? 'warn' : 'ok';
+  var metrics = document.getElementById('rent-metrics');
+  if(metrics) metrics.innerHTML = [
+    {lbl:'CA total généré',   val: Math.round(totalCA).toLocaleString('fr-FR') + ' €',  sub: filtered.length + ' consultants'},
+    {lbl:'Marge totale',      val: Math.round(totalMarge).toLocaleString('fr-FR') + ' €', sub: (totalCA>0?(totalMarge/totalCA*100).toFixed(1)+'%':'—'), cls: mc},
+    {lbl:'Marge % moyenne',   val: avgMargePct.toFixed(1) + '%', sub: 'sur mois actifs', cls: mc},
+    {lbl:'TJM moyen',         val: avgTjmVal > 0 ? Math.round(avgTjmVal).toLocaleString('fr-FR') + ' €' : '—', sub: 'consultants avec TJM'}
+  ].map(function(m) {
+    return '<div class="metric"><div class="metric-label">'+m.lbl+'</div>'+
+      '<div class="metric-val'+(m.cls?' '+m.cls:'')+'">'+m.val+'</div>'+
+      '<div class="metric-sub">'+m.sub+'</div></div>';
+  }).join('');
+
+  // Indicateurs tri
+  document.querySelectorAll('.rent-tbl th').forEach(function(th) {
+    th.classList.remove('sorted');
+    var arrow = th.querySelector('.sort-arrow');
+    if(arrow) arrow.textContent = '↕';
+  });
+  var activeTh = document.querySelector('.rent-tbl th[data-col="'+col+'"]');
+  if(activeTh) {
+    activeTh.classList.add('sorted');
+    var arr = activeTh.querySelector('.sort-arrow');
+    if(arr) arr.textContent = _rentSort.asc ? '↑' : '↓';
+  }
+
+  // Corps du tableau
+  var tbody = document.getElementById('rent-tbody');
+  if(!tbody) return;
+
+  if(!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--muted)">Aucun consultant</td></tr>';
+    return;
+  }
+
+  var maxCA = Math.max.apply(null, filtered.map(function(c){ return c.caTotal; }));
+
+  var STATUT_CONFIG = {
+    superperf:  {lbl:'⭐ Surperf',     bg:'#EDE8FF', color:'var(--brand)'},
+    ok:         {lbl:'🟢 OK',          bg:'var(--ok-bg)',     color:'var(--success)'},
+    insuffisant:{lbl:'🟠 Insuffisant', bg:'var(--warn-bg)',   color:'var(--warning)'},
+    alerte:     {lbl:'🔴 Alerte',      bg:'var(--danger-bg)', color:'var(--danger)'},
+    no_cost:    {lbl:'⬜ Sans coût',   bg:'#F5F3FF',          color:'var(--muted)'},
+    bp_zero:    {lbl:'📋 BP zéro',     bg:'#F5F3FF',          color:'var(--muted)'}
+  };
+
+  function fmt(n) { return Math.round(n).toLocaleString('fr-FR'); }
+  function fmtMois(m) {
+    if(!m) return '—';
+    var parts = m.split('-');
+    if(parts.length < 2) return m;
+    return MONTHS_FR[parseInt(parts[1])-1].slice(0,3) + ' ' + parts[0];
+  }
+
+  tbody.innerHTML = filtered.map(function(c) {
+    var sc  = STATUT_CONFIG[c.statut] || {lbl: c.statut, bg:'#F5F3FF', color:'var(--muted)'};
+    var mpc = c.margePctMoy < 0 ? 'color:var(--danger)' : c.margePctMoy < 4 ? 'color:var(--warning)' : 'color:var(--success)';
+    var barW = maxCA > 0 ? Math.round(c.caTotal / maxCA * 100) : 0;
+    var barColor = c.margePctMoy < 0 ? 'var(--danger)' : c.margePctMoy < 4 ? 'var(--warning)' : 'var(--brand)';
+
+    return '<tr>' +
+      '<td><div style="font-weight:600;font-size:13px">'+c.nom+'</div>' +
+        '<div class="rent-bar"><div class="rent-bar-fill" style="width:'+barW+'%;background:'+barColor+'"></div></div>' +
+        (c.metier ? '<div style="font-size:10.5px;color:var(--muted)">'+c.metier+'</div>' : '') +
+      '</td>' +
+      '<td style="font-size:12px;color:var(--muted)">'+( c.commercial || '—')+'</td>' +
+      '<td style="text-align:center">' +
+        '<span style="font-weight:700;color:var(--brand)">'+c.nbMoisActifs+'</span>' +
+        (c.nbMoisInactifs > 0 ? '<span style="font-size:10px;color:var(--muted)"> +'+c.nbMoisInactifs+' inactifs</span>' : '') +
+      '</td>' +
+      '<td style="font-size:12px;color:var(--muted)">'+fmtMois(c.debut)+'</td>' +
+      '<td style="font-size:12px;color:var(--muted)">'+fmtMois(c.fin)+'</td>' +
+      '<td style="text-align:right;font-family:var(--mono);font-weight:600">'+fmt(c.caTotal)+' €</td>' +
+      '<td style="text-align:right;font-family:var(--mono);font-weight:600;'+mpc+'">'+fmt(c.margeTotal)+' €</td>' +
+      '<td style="text-align:right;font-family:var(--mono);font-weight:700;'+mpc+'">'+c.margePctMoy.toFixed(1)+'%</td>' +
+      '<td style="text-align:right;font-family:var(--mono)">'+(c.tjmMoy > 0 ? fmt(c.tjmMoy)+' €' : '<span style="color:var(--muted)">—</span>')+'</td>' +
+      '<td><span class="rent-tag" style="background:'+sc.bg+';color:'+sc.color+'">'+sc.lbl+'</span></td>' +
+    '</tr>';
+  }).join('');
+}
 
 // ======== TÂCHES ========
 const TK_KEY = 'seven_portage_taches_v1';
