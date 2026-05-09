@@ -2369,7 +2369,7 @@ function buildFidConsData() {
       if(r.type !== 'matched') return;
       var normNom = norm(r.nom || r.crmNom || '');
       if(!normNom) return;
-      var actif = (r.coutTotal||0) > SEUIL_INACTIF_FID && (r.facture||0) > 0;
+      var actif = (r.facture||0) > 0; // inactif = pas de CA
       if(!actif) return; // ignorer mois mutuelle seulement
 
       if(!map[normNom]) {
@@ -2458,7 +2458,7 @@ function buildFidCliData() {
       if(r.type !== 'matched') return;
       var client = (r.client||'').trim();
       if(!client || client === '' || client === '—') return;
-      var actif = (r.coutTotal||0) > SEUIL_INACTIF_FID && (r.facture||0) > 0;
+      var actif = (r.facture||0) > 0; // inactif = pas de CA
       if(!actif) return;
 
       if(!map[client]) {
@@ -2864,7 +2864,8 @@ function buildRentData() {
 
       // Identifier si mois actif ou inactif (mutuelle seulement)
       var coutMois = r.coutTotal || 0;
-      if(coutMois <= SEUIL_INACTIF) {
+      // Inactif = pas de CA facturé ce mois (mutuelle seulement)
+      if((r.facture||0) === 0) {
         c.moisInactifs.push(moisKey);
       } else {
         c.moisActifs.push({
