@@ -1455,6 +1455,29 @@ select {
 .rent-tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:600}
 .rent-bar{height:5px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:3px}
 .rent-bar-fill{height:100%;border-radius:3px;transition:width .3s}
+.rent-tbl tbody tr{cursor:pointer}
+/* ── Fiche consultant ── */
+#rent-fiche{display:none;position:fixed;inset:0;background:rgba(15,11,20,.6);z-index:9998;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 16px;backdrop-filter:blur(4px)}
+.fiche-inner{background:var(--surface);border-radius:var(--radius);width:900px;max-width:98vw;box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative}
+.fiche-header{background:linear-gradient(135deg,var(--brand3),var(--brand));padding:22px 28px;border-radius:var(--radius) var(--radius) 0 0;color:#fff}
+.fiche-name{font-size:22px;font-weight:700;margin-bottom:4px}
+.fiche-meta{font-size:13px;opacity:.8;display:flex;gap:16px;flex-wrap:wrap}
+.fiche-close{position:absolute;top:14px;right:14px;border:none;background:rgba(255,255,255,.2);color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.fiche-close:hover{background:rgba(255,255,255,.35)}
+.fiche-body{padding:24px 28px}
+.fiche-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.fiche-section{margin-bottom:24px}
+.fiche-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--brand);margin-bottom:12px;padding-bottom:6px;border-bottom:1.5px solid var(--border)}
+.fiche-mois-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.fiche-mois-tbl th{padding:7px 11px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand);background:#F5F3FF;border-bottom:1.5px solid var(--border)}
+.fiche-mois-tbl td{padding:8px 11px;border-bottom:1px solid #F0EDF9;vertical-align:middle}
+.fiche-mois-tbl tr:last-child td{border-bottom:none}
+.fiche-mois-tbl tr:hover td{background:#FAFAFE}
+.fiche-chart{display:flex;align-items:flex-end;gap:4px;height:80px;margin-top:8px}
+.fiche-bar-col{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
+.fiche-bar-val{font-size:8px;color:var(--muted);writing-mode:horizontal-tb}
+.fiche-bar-rect{width:100%;border-radius:3px 3px 0 0;min-height:2px;transition:height .3s}
+.fiche-bar-lbl{font-size:8px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:28px}
 </style>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
@@ -1464,6 +1487,9 @@ select {
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <input type="text" id="rent-search" oninput="renderRentabilite()" placeholder="Rechercher un consultant…" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:12.5px;font-family:var(--font);width:220px">
+    <select id="rent-filter-year" onchange="renderRentabilite()" style="padding:7px 24px 7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:12.5px;font-family:var(--font);background:#FAFAFA">
+      <option value="">Toutes les années</option>
+    </select>
     <select id="rent-filter-commercial" onchange="renderRentabilite()" style="padding:7px 24px 7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:12.5px;font-family:var(--font);background:#FAFAFA">
       <option value="">Tous les commerciaux</option>
     </select>
@@ -1605,6 +1631,40 @@ select {
 
 </div>
 <!-- ======== FIN TAB FIDÉLITÉ ======== -->
+
+<!-- ======== FICHE CONSULTANT ======== -->
+<div id="rent-fiche">
+  <div class="fiche-inner">
+    <button class="fiche-close" onclick="closeFicheConsultant()">✕</button>
+    <div class="fiche-header">
+      <div class="fiche-name" id="fiche-nom">—</div>
+      <div class="fiche-meta" id="fiche-meta"></div>
+    </div>
+    <div class="fiche-body">
+      <div class="fiche-kpis" id="fiche-kpis"></div>
+      <div class="fiche-section">
+        <div class="fiche-section-title">Évolution CA &amp; Marge</div>
+        <div class="fiche-chart" id="fiche-chart"></div>
+      </div>
+      <div class="fiche-section">
+        <div class="fiche-section-title">Détail mois par mois</div>
+        <table class="fiche-mois-tbl">
+          <thead><tr>
+            <th>Mois</th>
+            <th style="text-align:right">CA facturé</th>
+            <th style="text-align:right">Coût global</th>
+            <th style="text-align:right">Marge €</th>
+            <th style="text-align:right">Marge %</th>
+            <th style="text-align:right">TJM</th>
+            <th>Client</th>
+            <th>Statut</th>
+          </tr></thead>
+          <tbody id="fiche-mois-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 const STORAGE_KEY = 'seven_portage_paie_v3';
@@ -1868,7 +1928,7 @@ function updateImportTotaux() {
 function fillSelOpt(id, headers, hints) {
   const el = document.getElementById(id);
   if(!el) return;
-  const norm2 = s => s.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const norm2 = s => s.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\n\r\t]+/g,' ').replace(/\s+/g,' ').trim();
   // Trouver le meilleur index AVANT de construire le HTML
   let bestIdx = -1, bestScore = -1;
   headers.forEach((h,i) => {
@@ -1887,7 +1947,7 @@ function fillSelOpt(id, headers, hints) {
 
 function fillSel(id, headers, hints) {
   const sel = document.getElementById(id);
-  const norm2 = s => s.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const norm2 = s => s.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\n\r\t]+/g,' ').replace(/\s+/g,' ').trim();
   // Trouver le meilleur index AVANT de construire le HTML
   // Score : exact=1000, partial=(hints.length - position du hint) pour prioriser les premiers hints
   let bestIdx = -1, bestScore = -1;
@@ -1896,9 +1956,11 @@ function fillSel(id, headers, hints) {
     for(let hi=0; hi<hints.length; hi++) {
       const hint = norm2(hints[hi]);
       const exactScore = 1000 - hi;
+      const startScore = 500 - hi;
       const partialScore = (hints.length - hi);
       if(lower === hint && exactScore > bestScore) { bestIdx=i; bestScore=exactScore; break; }
-      if(lower.includes(hint) && partialScore > bestScore) { bestIdx=i; bestScore=partialScore; }
+      if(lower.startsWith(hint) && startScore > bestScore) { bestIdx=i; bestScore=startScore; }
+      else if(lower.includes(hint) && partialScore > bestScore) { bestIdx=i; bestScore=partialScore; }
     }
   });
   // Construire le HTML avec selected sur la bonne option
@@ -2627,6 +2689,139 @@ function renderFideliteClients() {
   }).join('');
 }
 
+// ======== FICHE CONSULTANT ========
+
+function openFicheConsultant(normNom) {
+  var h = [];
+  try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) {}
+  h.sort(function(a,b){ return (a.year+a.month).localeCompare(b.year+b.month); });
+
+  // Collecter tous les mois de ce consultant
+  var moisData = [];
+  h.forEach(function(moisHist) {
+    var moisKey = moisHist.year + '-' + ('0'+moisHist.month).slice(-2);
+    (moisHist.results||[]).forEach(function(r) {
+      if(r.type !== 'matched') return;
+      if(norm(r.nom||r.crmNom||'') !== normNom) return;
+      moisData.push({
+        mois:      moisKey,
+        year:      moisHist.year,
+        month:     moisHist.month,
+        ca:        r.facture    || 0,
+        cout:      r.coutTotal  || 0,
+        marge:     r.margeEur   || 0,
+        margePct:  r.margePct   || 0,
+        tjm:       r.tjm        || 0,
+        client:    r.client     || '',
+        commercial:r.commercial || '',
+        metier:    r.metier     || '',
+        poste:     r.poste      || '',
+        status:    r.status     || '',
+        actif:     (r.coutTotal||0) > SEUIL_INACTIF
+      });
+    });
+  });
+
+  if(!moisData.length) return;
+
+  var nom = moisData[0] ? (moisData.find(function(m){ return m.ca > 0; }) || moisData[0]) : null;
+  var displayNom = nom ? nom.nom || normNom : normNom;
+
+  // Chercher le vrai nom affiché
+  var realNom = normNom;
+  h.forEach(function(moisHist) {
+    (moisHist.results||[]).forEach(function(r) {
+      if(norm(r.nom||r.crmNom||'') === normNom && (r.nom||r.crmNom)) {
+        realNom = r.nom || r.crmNom || normNom;
+      }
+    });
+  });
+
+  var actifs = moisData.filter(function(m){ return m.actif; });
+  var inactifs = moisData.filter(function(m){ return !m.actif; });
+  var caTotal    = actifs.reduce(function(s,m){ return s+m.ca; }, 0);
+  var margeTotal = actifs.reduce(function(s,m){ return s+m.marge; }, 0);
+  var margePctTot= caTotal > 0 ? (margeTotal/caTotal*100) : 0;
+  var tjmMoy     = actifs.filter(function(m){ return m.tjm>0; });
+  var tjmVal     = tjmMoy.length ? tjmMoy.reduce(function(s,m){ return s+m.tjm; },0)/tjmMoy.length : 0;
+  var dernierClient = actifs.length ? actifs[actifs.length-1].client : '';
+  var commercial    = actifs.length ? actifs[actifs.length-1].commercial : '';
+  var metier        = actifs.length ? actifs[actifs.length-1].metier || actifs[actifs.length-1].poste : '';
+  var debut = moisData[0].mois;
+  var fin   = moisData[moisData.length-1].mois;
+
+  // Remplir header
+  document.getElementById('fiche-nom').textContent = realNom;
+  var metaEl = document.getElementById('fiche-meta');
+  var metaParts = [];
+  if(commercial) metaParts.push('→ ' + commercial);
+  if(metier)     metaParts.push(metier);
+  if(dernierClient) metaParts.push('Client : ' + dernierClient);
+  metaParts.push(actifs.length + ' mois actifs · ' + inactifs.length + ' inactifs');
+  metaEl.innerHTML = metaParts.map(function(p){ return '<span>'+p+'</span>'; }).join('');
+
+  // KPIs
+  var mc = margePctTot<0?'danger':margePctTot<4?'warn':'ok';
+  document.getElementById('fiche-kpis').innerHTML = [
+    {lbl:'CA total',        val:Math.round(caTotal).toLocaleString('fr-FR')+' €',    cls:''},
+    {lbl:'Marge totale',    val:Math.round(margeTotal).toLocaleString('fr-FR')+' €', cls:mc},
+    {lbl:'Marge % globale', val:margePctTot.toFixed(1)+'%',                          cls:mc},
+    {lbl:'TJM moyen',       val:tjmVal>0?Math.round(tjmVal).toLocaleString('fr-FR')+' €':'—', cls:''}
+  ].map(function(k){
+    return '<div class="metric"><div class="metric-label">'+k.lbl+'</div>'+
+      '<div class="metric-val'+(k.cls?' '+k.cls:'')+'">'+k.val+'</div></div>';
+  }).join('');
+
+  // Graphique barres CA
+  var maxCA = Math.max.apply(null, moisData.map(function(m){ return m.ca; }));
+  var chartEl = document.getElementById('fiche-chart');
+  chartEl.innerHTML = moisData.map(function(m){
+    var h = maxCA > 0 ? Math.max(2, Math.round(m.ca/maxCA*72)) : 2;
+    var color = !m.actif ? 'var(--border2)' : m.margePct<0?'var(--danger)':m.margePct<4?'var(--warning)':'var(--brand)';
+    var mLabel = MONTHS_FR[parseInt(m.month)-1].slice(0,3);
+    return '<div class="fiche-bar-col" title="'+mLabel+' '+m.year+' — CA: '+Math.round(m.ca).toLocaleString('fr-FR')+'€ / Marge: '+m.margePct.toFixed(1)+'%">'+
+      '<div class="fiche-bar-rect" style="height:'+h+'px;background:'+color+'"></div>'+
+      '<div class="fiche-bar-lbl">'+mLabel+'</div>'+
+    '</div>';
+  }).join('');
+
+  // Tableau mois par mois
+  var STATUT_LABELS = {
+    superperf:'⭐ Surperf', ok:'🟢 OK', insuffisant:'🟠 Insuf.',
+    alerte:'🔴 Alerte', no_cost:'⬜ Sans coût', bp_zero:'📋 BP zéro'
+  };
+  document.getElementById('fiche-mois-tbody').innerHTML = moisData.map(function(m){
+    var moisLabel = MONTHS_FR[parseInt(m.month)-1]+' '+m.year;
+    var mc2 = m.margePct<0?'color:var(--danger)':m.margePct<4?'color:var(--warning)':'color:var(--success)';
+    var inactifStyle = !m.actif ? 'opacity:.5;font-style:italic' : '';
+    return '<tr style="'+inactifStyle+'">'+
+      '<td style="font-weight:600;white-space:nowrap">'+moisLabel+(m.actif?'':'<span style="font-size:10px;color:var(--muted);margin-left:5px">mutuelle</span>')+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono)">'+(m.ca>0?Math.round(m.ca).toLocaleString('fr-FR')+' €':'—')+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono)">'+(m.cout>0?Math.round(m.cout).toLocaleString('fr-FR')+' €':'—')+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono);'+mc2+'">'+(m.actif?Math.round(m.marge).toLocaleString('fr-FR')+' €':'—')+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono);font-weight:600;'+mc2+'">'+(m.actif?m.margePct.toFixed(1)+'%':'—')+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono)">'+(m.tjm>0?Math.round(m.tjm).toLocaleString('fr-FR')+' €':'—')+'</td>'+
+      '<td style="font-size:11.5px;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+( m.client||'—')+'</td>'+
+      '<td>'+(m.actif&&m.status?'<span class="rent-tag" style="font-size:10px;padding:1px 6px;background:var(--brand-soft);color:var(--brand)">'+(STATUT_LABELS[m.status]||m.status)+'</span>':'')+'</td>'+
+    '</tr>';
+  }).join('');
+
+  // Afficher le modal
+  var modal = document.getElementById('rent-fiche');
+  modal.style.display = 'flex';
+  modal.scrollTop = 0;
+}
+
+function closeFicheConsultant() {
+  document.getElementById('rent-fiche').style.display = 'none';
+}
+
+// Fermer en cliquant en dehors
+document.addEventListener('click', function(e) {
+  var modal = document.getElementById('rent-fiche');
+  if(modal && e.target === modal) closeFicheConsultant();
+});
+
 // ======== RENTABILITÉ PAR CONSULTANT ========
 var _rentSort = {col: 'caTotal', asc: false};
 var SEUIL_INACTIF = 250; // coût ≤ 250€ → mois mutuelle seulement, exclu des moyennes
@@ -2714,6 +2909,7 @@ function buildRentData() {
     result.push({
       normNom:      norm(c.nom),
       nom:          c.nom,
+      actifs:       actifs,
       commercial:   c.commercial,
       client:       c.client,
       metier:       c.metier,
@@ -2750,10 +2946,17 @@ function renderRentabilite() {
   var commercial = (document.getElementById('rent-filter-commercial')||{}).value || '';
   var statut     = (document.getElementById('rent-filter-statut')||{}).value || '';
 
+  var yearFilter = (document.getElementById('rent-filter-year')||{}).value || '';
+
   var filtered = data.filter(function(c) {
     if(search && c.nom.toLowerCase().indexOf(search.toLowerCase()) < 0) return false;
     if(commercial && c.commercial !== commercial) return false;
     if(statut && c.statut !== statut) return false;
+    // Filtre année : garder si le consultant a au moins un mois actif cette année
+    if(yearFilter) {
+      var hasYear = c.actifs && c.actifs.some(function(m){ return m.mois.startsWith(yearFilter); });
+      if(!hasYear) return false;
+    }
     return true;
   });
 
@@ -2767,6 +2970,16 @@ function renderRentabilite() {
     if(va > vb) return _rentSort.asc ?  1 : -1;
     return 0;
   });
+
+  // Peupler le filtre année
+  var yearSel = document.getElementById('rent-filter-year');
+  if(yearSel && yearSel.options.length <= 1) {
+    var h2 = []; try{ h2=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }catch(e){}
+    var years = [...new Set(h2.map(function(d){ return d.year; }))].sort().reverse();
+    years.forEach(function(y) {
+      var o = document.createElement('option'); o.value = o.textContent = y; yearSel.appendChild(o);
+    });
+  }
 
   // Peupler le filtre commercial
   var comSel = document.getElementById('rent-filter-commercial');
@@ -2850,7 +3063,7 @@ function renderRentabilite() {
     var barW = maxCA > 0 ? Math.round(c.caTotal / maxCA * 100) : 0;
     var barColor = c.margePctMoy < 0 ? 'var(--danger)' : c.margePctMoy < 4 ? 'var(--warning)' : 'var(--brand)';
 
-    return '<tr>' +
+    return '<tr onclick="openFicheConsultant(\'' + c.normNom + '\')" style="cursor:pointer">' +
       '<td><div style="font-weight:600;font-size:13px">'+c.nom+'</div>' +
         '<div class="rent-bar"><div class="rent-bar-fill" style="width:'+barW+'%;background:'+barColor+'"></div></div>' +
         (c.metier ? '<div style="font-size:10.5px;color:var(--muted)">'+c.metier+'</div>' : '') +
