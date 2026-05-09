@@ -75,13 +75,13 @@ body {
 
 /* ── HEADER ── */
 .header {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--brand3, #372EB6) 0%, var(--brand, #7343EE) 100%);
+  border-bottom: none;
   padding: 0 32px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 60px;
+  height: 62px;
   position: sticky;
   top: 0;
   z-index: 200;
@@ -89,9 +89,9 @@ body {
   -webkit-backdrop-filter: blur(12px);
 }
 .header-brand { display: flex; align-items: center; gap: 16px; }
-.header-title { font-size: 13.5px; font-weight: 600; color: var(--text); letter-spacing: -.01em; }
-.header-divider { width: 1px; height: 20px; background: var(--border2); }
-.header-pill { font-size: 11px; font-weight: 500; color: var(--brand); background: var(--brand-soft); padding: 2px 9px; border-radius: 20px; letter-spacing: .02em; }
+.header-title { font-size: 13.5px; font-weight: 600; color: #fff; letter-spacing: -.01em; }
+.header-divider { width: 1px; height: 20px; background: rgba(255,255,255,.3); }
+.header-pill { font-size: 11px; font-weight: 500; color: #fff; background: rgba(255,255,255,.2); padding: 2px 9px; border-radius: 20px; letter-spacing: .02em; }
 
 /* ── NAV ── */
 .nav-tabs {
@@ -107,6 +107,7 @@ body {
   z-index: 100;
 }
 .nav-tabs::-webkit-scrollbar { display: none; }
+.nav-divider { width:1px; height:20px; background:var(--border); margin:0 4px; align-self:center; flex-shrink:0; display:inline-block; }
 .nav-tab {
   padding: 0 18px;
   height: 48px;
@@ -326,34 +327,24 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
   </div>
 </div>
 <div class="nav-tabs">
-  <div class="nav-group">
-    <button class="nav-tab active" onclick="switchTab('import',this)">① Import</button>
-    <button class="nav-tab" id="tab-matching-btn" onclick="switchTab('matching',this)">② Matching <span class="tab-badge warn" id="badge-matching" style="display:none">0</span></button>
-    <button class="nav-tab" id="tab-analyse-btn" onclick="switchTab('analyse',this)">③ Analyse <span class="tab-badge" id="badge-danger" style="display:none">0</span></button>
-  </div>
-  <div class="nav-sep"></div>
-  <div class="nav-group">
-    <button class="nav-tab" onclick="switchTab('historique',this)">📁 Historique</button>
-    <button class="nav-tab" onclick="switchTab('suivi',this)">📈 Suivi Annuel</button>
-    <button class="nav-tab" onclick="switchTab('financier',this)">💰 Financier</button>
-  </div>
-  <div class="nav-sep"></div>
-  <div class="nav-group">
-    <button class="nav-tab" onclick="switchTab('pilotage',this)">🎯 Pilotage</button>
-    <button class="nav-tab" onclick="switchTab('axes',this)">📋 Axes</button>
-    <button class="nav-tab" onclick="switchTab('client',this)">🏢 Clients</button>
-    <button class="nav-tab" onclick="switchTab('referentiel',this)">📚 Référentiel</button>
-    <button class="nav-tab" onclick="switchTab('dictionnaire',this)">🔗 Corrections</button>
-  </div>
-  <div class="nav-sep"></div>
-  <div class="nav-group">
-    <button class="nav-tab" onclick="switchTab('rentabilite',this)">💰 Rentabilité</button>
-    <button class="nav-tab" onclick="switchTab('fidelite',this)">🤝 Fidélité</button>
-  </div>
-  <div class="nav-sep"></div>
-  <div class="nav-group">
-    <button class="nav-tab" onclick="switchTab('taches',this)">✅ Tâches <span class="tab-badge" id="badge-taches" style="display:none">0</span></button>
-  </div>
+  <button class="nav-tab active" onclick="switchTab('import',this)">① Import</button>
+  <button class="nav-tab" id="tab-matching-btn" onclick="switchTab('matching',this)">② Matching <span class="tab-badge warn" id="badge-matching" style="display:none">0</span></button>
+  <button class="nav-tab" id="tab-analyse-btn" onclick="switchTab('analyse',this)">③ Analyse <span class="tab-badge" id="badge-danger" style="display:none">0</span></button>
+  <span class="nav-divider"></span>
+  <button class="nav-tab" onclick="switchTab('historique',this)">📁 Historique</button>
+  <button class="nav-tab" onclick="switchTab('suivi',this)">📈 Suivi Annuel</button>
+  <button class="nav-tab" onclick="switchTab('financier',this)">💰 Financier</button>
+  <span class="nav-divider"></span>
+  <button class="nav-tab" onclick="switchTab('pilotage',this)">🎯 Pilotage</button>
+  <button class="nav-tab" onclick="switchTab('axes',this)">📋 Axes</button>
+  <button class="nav-tab" onclick="switchTab('client',this)">🏢 Clients</button>
+  <button class="nav-tab" onclick="switchTab('referentiel',this)">📚 Réf.</button>
+  <button class="nav-tab" onclick="switchTab('dictionnaire',this)">🔗 Correc.</button>
+  <span class="nav-divider"></span>
+  <button class="nav-tab" onclick="switchTab('rentabilite',this)">💰 Rentab.</button>
+  <button class="nav-tab" onclick="switchTab('fidelite',this)">🤝 Fidélité</button>
+  <span class="nav-divider"></span>
+  <button class="nav-tab" onclick="switchTab('taches',this)">✅ Tâches <span class="tab-badge" id="badge-taches" style="display:none">0</span></button>
 </div>
 
 <!-- ======== BANDEAU SYNC ONEDRIVE ======== -->
@@ -6614,7 +6605,7 @@ function pilDrawCharts(monthly, months, objM, entrants, sortants, cmap, MFS){
 <!-- ======== FIN TAB FIDÉLITÉ ======== -->
 
 <!-- ======== FICHE CONSULTANT ======== -->
-<div id="rent-fiche">
+<div id="rent-fiche" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 16px;backdrop-filter:blur(4px)">
   <div class="fiche-inner">
     <button class="fiche-close" onclick="closeFicheConsultant()">✕</button>
     <div class="fiche-header fiche-header-consultant">
