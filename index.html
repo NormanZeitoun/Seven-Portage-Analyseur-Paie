@@ -2391,8 +2391,10 @@ function odAutoSync() {
 
 // ======== FICHE CLIENT ========
 function openFicheClient(nomClient) {
+  console.log('[FICHE CLIENT] openFicheClient appelé pour:', nomClient);
   var h = [];
-  try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) {}
+  try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) { console.error('Erreur localStorage:', e); }
+  console.log('[FICHE CLIENT] historique:', h.length, 'mois');
   h.sort(function(a,b){ return (a.year+a.month).localeCompare(b.year+b.month); });
   var moisMap = {};
   h.forEach(function(moisHist) {
@@ -2837,16 +2839,24 @@ function renderFideliteClients() {
   var moyAnc = total ? data.reduce(function(s,c){ return s+c.anciennete; }, 0)/total : 0;
 
   var kpis = document.getElementById('fid-cli-kpis');
-  if(kpis) kpis.innerHTML = [
-    {lbl:'Clients distincts',   val:total,                          sub:'historique',     cls:''},
-    {lbl:'Clients actifs',      val:actifs,                         sub:((total)?((actifs/total*100).toFixed(0)+'% du total'):'N/A'), cls:'ok'},
-    {lbl:'Ancienneté moyenne',  val:moyAnc.toFixed(0)+' mois',     sub:'depuis 1ère mission',    cls:''},
-    {lbl:'Portés (historique)', val:totalPortes,                    sub:'tous clients confondus', cls:''}
-  ].map(function(m){
-    return '<div class="metric"><div class="metric-label">'+m.lbl+'</div>'+
-      '<div class="metric-val'+(m.cls?' '+m.cls:'')+'">'+m.val+'</div>'+
-      '<div class="metric-sub">'+m.sub+'</div></div>';
-  }).join('');
+  var nbInactifs = data.filter(function(c){ return !c.estActif; }).length;
+  var kpisArr = [
+    {lbl:'Clients distincts',   val:total,        sub:'historique',                                                    cls:'',   fn:null},
+    {lbl:'Clients actifs',      val:actifs,       sub:((total)?((actifs/total*100).toFixed(0)+'% du total'):'N/A'),   cls:'ok', fn:null},
+    {lbl:'Clients inactifs',    val:nbInactifs,   sub:((total)?((nbInactifs/total*100).toFixed(0)+'% · cliquer pour voir'):'N/A'), cls:'warn', fn:'showClientsInactifs'},
+    {lbl:'Portés (historique)', val:totalPortes, sub:'tous clients confondus',                                   cls:'',   fn:null}
+  ];
+  if(kpis) {
+    kpis.innerHTML = kpisArr.map(function(m){
+      return '<div class="metric"'+(m.fn?' style="cursor:pointer" data-fn="'+m.fn+'"':'')+'>'+
+        '<div class="metric-label">'+m.lbl+'</div>'+
+        '<div class="metric-val'+(m.cls?' '+m.cls:'')+'">'+m.val+'</div>'+
+        '<div class="metric-sub">'+m.sub+'</div></div>';
+    }).join('');
+    kpis.querySelectorAll('[data-fn]').forEach(function(el){
+      el.addEventListener('click', function(){ window[el.getAttribute('data-fn')](); });
+    });
+  }
 
   // Tableau
   var tbody = document.getElementById('fid-cli-tbody');
