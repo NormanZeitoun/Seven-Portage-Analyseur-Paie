@@ -143,6 +143,8 @@ body {
 .tab-pane.active { display: block; }
 
 /* ── SECTION LABEL ── */
+.page-title { font-size:20px; font-weight:700; color:var(--text); letter-spacing:-.02em; margin-bottom:4px; }
+.page-sub { font-size:12px; color:var(--text3); margin-bottom:20px; }
 .section-label { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); margin-bottom: 14px; }
 
 /* ── GRID ── */
@@ -333,13 +335,15 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 .fid-bar-track { flex:1; height:10px; background:var(--border); border-radius:5px; overflow:hidden; }
 .fid-bar-fill { height:100%; border-radius:5px; transition:width .4s; }
 .fid-bar-val { font-size:12px; font-family:var(--mono); font-weight:600; min-width:80px; text-align:right; }
-.fid-tbl { width:100%; border-collapse:collapse; font-size:12.5px; }
-.fid-tbl th { padding:9px 13px; font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--text3); background:var(--surface2); border-bottom:1px solid var(--border); white-space:nowrap; cursor:pointer; }
+.fid-tbl { width:100%; border-collapse:collapse; font-size:13px; }
+.fid-tbl th { padding:10px 14px; font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--text3); background:var(--surface2); border-bottom:1px solid var(--border); white-space:nowrap; cursor:pointer; }
 .fid-tbl th:hover { background:var(--brand-soft); }
-.fid-tbl td { padding:9px 13px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.fid-tbl td { padding:10px 14px; border-bottom:1px solid var(--border); vertical-align:middle; white-space:nowrap; }
 .fid-tbl tr:last-child td { border-bottom:none; }
 .fid-tbl tr:hover td { background:var(--brand-soft); }
 .fid-pill { display:inline-flex; align-items:center; padding:2px 9px; border-radius:20px; font-size:10.5px; font-weight:600; }
+/* Wrap tableau fid */
+.fid-tbl-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-xs); margin-bottom:16px; }
 
 /* ── RENTABILITÉ ── */
 .rent-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
@@ -435,6 +439,18 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 /* ── SUIVI ANNUEL ── */
 #suivi-table { background:var(--surface); }
 
+
+/* ── COMPAT ALIASES ── */
+.tbl-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-xs); }
+.mono { font-family:var(--mono); font-size:12px; }
+#suivi-table th { background:var(--surface2); color:var(--text3); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; }
+#suivi-table td { border-bottom:1px solid var(--border); }
+#suivi-table tr:hover td { background:var(--brand-soft); }
+.section-title { font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; box-shadow:var(--shadow-sm); }
+.badge-brand { background:var(--brand-soft); color:var(--brand); }
+.badge-gray { background:var(--surface2); color:var(--text3); }
+
 </style>
   <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
 </head>
@@ -474,7 +490,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 </div>
 
 <!-- ======== BANDEAU SYNC ONEDRIVE ======== -->
-<div id="onedrive-bar" style="background:var(--brand-soft);border-bottom:1px solid var(--border);padding:8px 32px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+<div id="onedrive-bar" style="background:var(--brand-soft,#F2EFFE);border-bottom:1px solid var(--border,rgba(0,0,0,.08));padding:8px 32px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;position:sticky;top:60px;z-index:90">
   <div style="display:flex;align-items:center;gap:10px">
     <span style="font-size:16px">☁️</span>
     <div>
@@ -951,7 +967,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
   </div>
 
   <!-- Formulaire ajout/édition -->
-  <div id="ref-form" style="display:none;background:var(--surface2);border-radius:12px;padding:16px;margin-bottom:1rem;border:0.5px solid var(--border)">
+  <div id="ref-form" style="display:none;background:var(--surface2);border-radius:var(--radius);padding:16px;margin-bottom:1rem;border:1px solid var(--border)">
     <div style="font-size:13px;font-weight:500;margin-bottom:12px" id="ref-form-title">Ajouter un poste</div>
     <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:end">
       <div>
@@ -991,7 +1007,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
         <button onclick="document.getElementById('ref-aclasser-section').style.display='none'" style="padding:5px 10px;border:0.5px solid var(--border2);border-radius:6px;font-size:12px;cursor:pointer;background:none">✕</button>
       </div>
     </div>
-    <div style="background:var(--surface);border:0.5px solid #FAC775;border-radius:12px;overflow:hidden">
+    <div style="background:var(--surface);border:1px solid #FAC775;border-radius:var(--radius);overflow:hidden">
       <div style="overflow-x:auto;max-height:500px;overflow-y:auto">
         <table class="ref-tbl" id="ref-tbl-aclasser">
           <thead><tr>
@@ -1008,7 +1024,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
   </div>
 
   <!-- Tableau principal -->
-  <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:12px;overflow:hidden">
+  <div class="table-container">
     <div style="overflow-x:auto;max-height:600px;overflow-y:auto">
       <table class="ref-tbl" id="ref-tbl"></table>
     </div>
@@ -1178,7 +1194,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
   </div>
 
   <!-- Décrochage : onglet replié -->
-  <details style="background:var(--surface);border:0.5px solid var(--border);border-radius:12px;overflow:hidden">
+  <details style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
     <summary style="padding:12px 16px;cursor:pointer;font-size:13px;font-weight:500;background:var(--surface2);user-select:none">
       Consultants en décrochage <span id="pil-decro-count" style="font-size:11px;font-weight:400;color:var(--text2)"></span>
     </summary>
@@ -1251,7 +1267,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
   <div style="display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap;margin-bottom:1.25rem">
 
     <!-- Charges fixes : 2 lignes fixes -->
-    <div style="flex:1;min-width:260px;background:var(--surface);border:0.5px solid var(--border);border-radius:var(--border-radius-lg);padding:1rem">
+    <div style="flex:1;min-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:var(--border-radius-lg);padding:1rem">
       <div class="section-label">Charges fixes mensuelles</div>
       <div style="display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;align-items:center;gap:8px">
@@ -1276,7 +1292,7 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
     </div>
 
     <!-- Provision CP : montant fixe mensuel -->
-    <div style="flex:1;min-width:220px;background:var(--surface);border:0.5px solid var(--border);border-radius:var(--border-radius-lg);padding:1rem">
+    <div style="flex:1;min-width:220px;background:var(--surface);border:1px solid var(--border);border-radius:var(--border-radius-lg);padding:1rem">
       <div class="section-label">Provision Congés Payés</div>
       <div style="display:flex;align-items:center;gap:8px">
         <label style="font-size:12px;color:var(--text2);min-width:100px">Montant annuel (÷12/mois)</label>
@@ -4302,7 +4318,7 @@ function renderRef() {
   const stats = {};
   entries.forEach(e => { stats[e.s]=(stats[e.s]||0)+1; });
   document.getElementById('ref-stats').innerHTML = Object.entries(stats).sort((a,b)=>b[1]-a[1]).map(([s,n])=>
-    `<span style="background:${SECTEUR_COLORS[s]||'#9B9890'}22;color:${SECTEUR_COLORS[s]||'#9B9890'};padding:3px 10px;border-radius:12px;font-size:11px;font-weight:500">${s} (${n})</span>`
+    `<span style="background:${SECTEUR_COLORS[s]||'#9B9890'}22;color:${SECTEUR_COLORS[s]||'#9B9890'};padding:3px 10px;border-radius:var(--radius);font-size:11px;font-weight:500">${s} (${n})</span>`
   ).join('');
 
   // Filtrer
