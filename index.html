@@ -4018,19 +4018,24 @@ function renderClientSecteurs(yd1) {
   yd1.forEach(d => d.results.filter(r=>r.type==='matched').forEach(r=>allResults.push(r)));
   const enriched = enrichWithSecteur(allResults);
 
-  // Agréger par secteur
+  // Agréger par secteur — consultants distincts (pas passages mensuels)
   const sMap = {};
   enriched.forEach(r => {
     const s = r._secteur;
-    if(!sMap[s]) sMap[s] = {secteur:s, ca:0, marge:0, nPortes:0, metiers:{}};
+    if(!sMap[s]) sMap[s] = {secteur:s, ca:0, marge:0, nPortes:0, _cons:new Set(), metiers:{}};
     sMap[s].ca    += r.facture||0;
     sMap[s].marge += r.margeEur||0;
-    sMap[s].nPortes++;
+    sMap[s]._cons.add(r.nom || r.crmNom || '');  // consultant distinct
     const m = r._metier||'Général';
-    if(!sMap[s].metiers[m]) sMap[s].metiers[m] = {ca:0, marge:0, n:0};
+    if(!sMap[s].metiers[m]) sMap[s].metiers[m] = {ca:0, marge:0, n:0, _cons:new Set()};
     sMap[s].metiers[m].ca    += r.facture||0;
     sMap[s].metiers[m].marge += r.margeEur||0;
-    sMap[s].metiers[m].n++;
+    sMap[s].metiers[m]._cons.add(r.nom || r.crmNom || '');
+  });
+  // Calculer nPortes = nb consultants distincts
+  Object.values(sMap).forEach(s => {
+    s.nPortes = s._cons.size;
+    Object.values(s.metiers).forEach(m => { m.n = m._cons.size; });
   });
   const sData = Object.values(sMap).sort((a,b)=>b.ca-a.ca);
   const totCA = sData.reduce((s,d)=>s+d.ca, 0);
@@ -6038,7 +6043,7 @@ function renderAxes() {
   // ── RECOMMANDATIONS ──
   const recommandations=[];
   const nConsultants=Object.keys(cmap).length;
-  if(nConsultants>=3) recommandations.push(card('info','Structure','ax-pill-blue','Concentration du CA','',(()=>{const sorted=[...cmap].sort?[...Object.keys(cmap)]:Object.keys(cmap);const top3CA=sorted.map(n=>{const total=months.reduce((s,m)=>s+(cmap[n][m]?.facture||0),0);return{n,total};}).sort((a,b)=>b.total-a.total).slice(0,3);const top3sum=top3CA.reduce((s,c)=>s+c.total,0);const pct=totCA>0?Math.round(top3sum/totCA*100):0;return`Les 3 consultants les plus facturés représentent ${pct}% du CA total. ${pct>70?'Niveau de concentration élevé — risque si l\'un d\'eux part.':'Bonne diversification du CA.'}`})(),'Viser un portefeuille équilibré sans dépendance > 30% par consultant'));
+  if(nConsultants>=3) recommandations.push(card('info','Structure','ax-pill-blue','Concentration du CA','',(()=>{const sorted=Object.keys(cmap);const top3CA=sorted.map(n=>{const total=months.reduce((s,m)=>s+(cmap[n][m]?.facture||0),0);return{n,total};}).sort((a,b)=>b.total-a.total).slice(0,3);const top3sum=top3CA.reduce((s,c)=>s+c.total,0);const pct=totCA>0?Math.round(top3sum/totCA*100):0;return`Les 3 consultants les plus facturés représentent ${pct}% du CA total. ${pct>70?'Niveau de concentration élevé — risque si l\'un d\'eux part.':'Bonne diversification du CA.'}`})(),'Viser un portefeuille équilibré sans dépendance > 30% par consultant'));
   recommandations.push(card('info','Saisonnalité','ax-pill-blue','Analyser la saisonnalité','','Identifiez vos mois creux (juillet-août, décembre) pour anticiper les baisses de CA et planifier des actions commerciales en amont.','Comparer mois N vs mois N-1 dans l\'historique'));
   if(totBP===0&&moyMp>5) recommandations.push(card('info','Optimisation','ax-pill-blue','Optimisation tarifaire','','Votre taux de marge est sain. C\'est le bon moment pour tester une légère revalorisation tarifaire sur les nouveaux contrats, sans toucher aux contrats en cours.','Tester +2% sur les prochains renouvellements'));
   recommandations.push(card('info','Suivi','ax-pill-blue','Cadence de suivi recommandée','','Pour une détection précoce des décrochages, enregistrez chaque mois dès la réception des fichiers. 2 mois de retard rendent les alertes moins fiables.','Objectif : import mensuel avant le 15 du mois suivant'));
