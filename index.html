@@ -286,6 +286,20 @@ select {
   .mapping-rows { grid-template-columns:1fr; }
 }
 .fiche-inner{background:var(--surface);border-radius:var(--radius);width:900px;max-width:98vw;box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative}
+
+/* ── AXES AMÉLIORATIONS ── */
+.ax-card { border:1.5px solid var(--border); border-radius:var(--radius); padding:16px 18px; background:var(--surface); }
+.ax-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.ax-card-title { font-size:13px; font-weight:700; color:var(--text); }
+.ax-badge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; }
+.ax-card-val { font-size:22px; font-weight:700; font-family:var(--mono); margin-bottom:10px; line-height:1.1; }
+.ax-card-detail { font-size:12px; color:var(--text2); line-height:1.6; }
+.ax-card-action { font-size:12px; font-weight:600; color:var(--brand); margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+.ax-name { font-weight:600; color:var(--text); }
+.ax-neg  { color:var(--danger); font-weight:700; font-family:var(--mono); }
+.ax-pos  { color:var(--ok); font-weight:700; font-family:var(--mono); }
+.ax-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; }
+
 </style>
   <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
 </head>
@@ -5940,123 +5954,302 @@ function renderAxes() {
 
   const months = yd.map(d=>d.month);
 
-  // ── Données agrégées ──
-  const monthly = yd.map(d=>{
-    const ca=totalCaMois(d);
-    const cout=totalCoutMois(d);
-    const nPortes=d.results.filter(r=>r.facture>0).length;
-    return{month:d.month,ca,cout,marge:ca-cout,mp:ca>0?((ca-cout)/ca)*100:0,nPortes,nBP:d.results.filter(r=>r.type==='bp_zero').length};
-  });
+  // ── Helpers ──
+  function linReg(vals){
+    const n=vals.length; if(n<2)return 0;
+    const mx=(n-1)/2, my=vals.reduce((s,v)=>s+v,0)/n;
+    const num=vals.reduce((s,v,i)=>s+(i-mx)*(v-my),0);
+    const den=vals.reduce((s,v,i)=>s+(i-mx)*(i-mx),0);
+    return den>0?num/den:0;
+  }
+  function fmt(n){return Math.round(n).toLocaleString('fr-FR');}
+  function fmtPct(n){return (n>0?'+':'')+n.toFixed(1)+'%';}
 
+  // ── Agréger toutes les données par consultant ──
   const cmap={};
   yd.forEach(d=>d.results.filter(r=>r.type==='matched').forEach(r=>{
-    if(!cmap[r.nom])cmap[r.nom]={};
-    cmap[r.nom][d.month]={mp:r.margePct,marge:r.margeEur,facture:r.facture,cout:r.coutTotal,status:r.status};
+    if(!cmap[r.nom])cmap[r.nom]={
+      nom:r.nom, commercial:r.commercial||'', client:r.client||'',
+      metier:r.metier||'', poste:r.poste||'', mois:{}
+    };
+    cmap[r.nom].mois[d.month]={
+      mp:r.margePct, marge:r.margeEur, facture:r.facture,
+      cout:r.coutTotal, status:r.status, tjm:r.tjm||0
+    };
+    // Mettre à jour commercial/client avec le plus récent
+    if(r.commercial) cmap[r.nom].commercial = r.commercial;
+    if(r.client)     cmap[r.nom].client     = r.client;
+    if(r.tjm>0)      cmap[r.nom].lastTjm    = r.tjm;
   }));
 
-  function linReg(vals){const n=vals.length;if(n<2)return 0;const mx=(n-1)/2,my=vals.reduce((s,v)=>s+v,0)/n;const num=vals.reduce((s,v,i)=>s+(i-mx)*(v-my),0);const den=vals.reduce((s,_,i)=>s+(i-mx)**2,0);return den>0?num/den:0;}
+  // ── Stats par consultant ──
+  const cStats = Object.values(cmap).map(c=>{
+    const moisData = months.map(m=>c.mois[m]).filter(Boolean);
+    const actifs   = moisData.filter(m=>m.facture>0);
+    const pcts     = actifs.map(m=>m.mp).filter(v=>v!==null&&v!==undefined);
+    const margeSum = actifs.reduce((s,m)=>s+m.marge,0);
+    const caSum    = actifs.reduce((s,m)=>s+m.facture,0);
+    const coutSum  = actifs.reduce((s,m)=>s+m.cout,0);
+    const tjms     = actifs.map(m=>m.tjm).filter(v=>v>0);
+    const tjmMoy   = tjms.length?tjms.reduce((s,v)=>s+v,0)/tjms.length:0;
+    const tjmTrend = linReg(tjms);
+    const moy      = caSum>0?margeSum/caSum*100:null;
+    const trend    = linReg(pcts);
+    return{...c, moy, trend, pcts, margeSum, caSum, coutSum, tjmMoy, tjmTrend,
+           nMoisActifs:actifs.length, lastStatus:actifs.length?actifs[actifs.length-1].status:null};
+  }).filter(c=>c.nMoisActifs>0);
 
-  const moyMp   = monthly.reduce((s,d)=>s+d.mp,0)/monthly.length;
-  const trendMp = linReg(monthly.map(d=>d.mp));
-  const moyPortes = monthly.reduce((s,d)=>s+d.nPortes,0)/monthly.length;
-  const trendPortes = linReg(monthly.map(d=>d.nPortes));
-  const totBP = yd.reduce((s,d)=>s+d.results.filter(r=>r.type==='bp_zero').length,0);
-  const totCA = monthly.reduce((s,d)=>s+d.ca,0);
-  const totMarge = monthly.reduce((s,d)=>s+d.marge,0);
-
-  // Consultants par statut annuel
-  const cStats = Object.keys(cmap).map(nom=>{
-    const pcts=months.map(m=>cmap[nom][m]?.mp).filter(v=>v!==null&&v!==undefined);
-    const moy=pcts.length>0?pcts.reduce((s,v)=>s+v,0)/pcts.length:null;
-    const tr=linReg(pcts);
-    return{nom,moy,trend:tr,pcts};
+  // ── Stats par commercial ──
+  const commMap={};
+  cStats.forEach(c=>{
+    const com=c.commercial||'Non assigné';
+    if(!commMap[com])commMap[com]={nom:com,consultants:[],caSum:0,margeSum:0,nAlerte:0};
+    commMap[com].consultants.push(c);
+    commMap[com].caSum    += c.caSum;
+    commMap[com].margeSum += c.margeSum;
+    if(c.lastStatus==='alerte') commMap[com].nAlerte++;
   });
-  const enDecro   = cStats.filter(c=>c.moy!==null&&c.moy<4&&c.trend<-0.3);
-  const enBaisse  = cStats.filter(c=>c.moy!==null&&c.moy>=4&&c.trend<-0.5);
-  const enHausse  = cStats.filter(c=>c.moy!==null&&c.trend>0.5&&c.moy<9);
-  const superperfs= cStats.filter(c=>c.moy!==null&&c.moy>9);
-  const sansMarges= cStats.filter(c=>c.moy!==null&&c.moy<0);
+  const commStats = Object.values(commMap).map(cm=>{
+    cm.margePct = cm.caSum>0?cm.caSum>0?(cm.margeSum/cm.caSum*100):0:0;
+    cm.pctAlerte= cm.consultants.length>0?(cm.nAlerte/cm.consultants.length*100):0;
+    return cm;
+  }).filter(cm=>cm.caSum>0).sort((a,b)=>b.caSum-a.caSum);
 
-  // Flux portefeuille
-  const activeByMonth={};
-  yd.forEach(d=>{
-    activeByMonth[d.month]=new Set(d.results.filter(r=>r.type==='matched'&&r.facture>0).map(r=>norm(r.nom)));
-  });
-  const totalEntrants=months.reduce((s,m,i)=>{if(i===0)return s+activeByMonth[m].size;const prev=activeByMonth[months[i-1]];return s+[...activeByMonth[m]].filter(n=>!prev.has(n)).length;},0);
-  const totalSortants=months.reduce((s,m,i)=>{if(i===0)return s;const prev=activeByMonth[months[i-1]];return s+[...prev].filter(n=>!activeByMonth[m].has(n)).length;},0);
-  const fluxNet = totalEntrants - totalSortants;
-  const dernierMois = monthly[monthly.length-1];
+  // ── Stats par client ──
+  const cliMap={};
+  yd.forEach(d=>d.results.filter(r=>r.type==='matched'&&r.client).forEach(r=>{
+    const cl=r.client.trim(); if(!cl)return;
+    if(!cliMap[cl])cliMap[cl]={nom:cl,ca:0,marge:0,portesSet:new Set(),moisSet:new Set()};
+    cliMap[cl].ca    += r.facture||0;
+    cliMap[cl].marge += r.margeEur||0;
+    cliMap[cl].portesSet.add(r.nom);
+    cliMap[cl].moisSet.add(d.month);
+  }));
+  const cliStats = Object.values(cliMap).map(cl=>({
+    ...cl, nPortes:cl.portesSet.size, nMois:cl.moisSet.size,
+    margePct: cl.ca>0?(cl.marge/cl.ca*100):0
+  })).filter(cl=>cl.ca>0);
 
-  function card(type,pill,pillCls,title,stat,body,action){
-    return`<div class="ax-card ${type}">
-      <div class="ax-card-header">
-        <div class="ax-card-title">${title}</div>
-        <span class="ax-pill ${pillCls}">${pill}</span>
-      </div>
-      ${stat?`<div class="ax-stat" style="color:${type==='urgent'?'#A32D2D':type==='warning'?'#633806':type==='ok'?'#085041':'#185FA5'}">${stat}</div>`:''}
-      <div class="ax-card-body">${body}</div>
-      ${action?`<div class="ax-card-action">→ ${action}</div>`:''}
-    </div>`;
+  // ── Totaux globaux ──
+  const totCA    = cStats.reduce((s,c)=>s+c.caSum,0);
+  const totMarge = cStats.reduce((s,c)=>s+c.margeSum,0);
+  const moyMp    = totCA>0?totMarge/totCA*100:0;
+
+  // ══════════════════════════════════════════
+  // ANALYSES
+  // ══════════════════════════════════════════
+  const alertes=[], vigilance=[], positifs=[], recommandations=[];
+
+  function card(type,titre,badge,valeur,detail,action){
+    return {type,titre,badge,valeur,detail,action};
   }
 
   // ── ALERTES PRIORITAIRES ──
-  const alertes=[];
-  if(sansMarges.length>0) alertes.push(card('urgent','Urgent','ax-pill-red','Marge négative détectée',sansMarges.length+' consultant'+(sansMarges.length>1?'s':''),'Consultants concernés : '+sansMarges.map(c=>c.nom).join(', ')+'. Coût supérieur à la facturation.','Revoir immédiatement le TJM ou les conditions de portage'));
-  // Décrochage : 2+ mois requis
-  if(monthly.length>=2&&enDecro.length>0) alertes.push(card('urgent','Décrochage','ax-pill-red','Consultants en décrochage',enDecro.length+' consultant'+(enDecro.length>1?'s':''),enDecro.map(c=>c.nom+' ('+c.moy?.toFixed(1)+'%)').join(', ')+'. Marge sous 4% et en baisse continue.','Anticiper un entretien tarifaire avant le prochain renouvellement'));
-  // Marge sous cible ce mois — fonctionne dès 1 mois
-  const consultantsAlerte = cStats.filter(c=>c.moy!==null&&c.moy<4&&c.moy>=0);
-  if(consultantsAlerte.length>0) alertes.push(card('urgent','Marge faible','ax-pill-red',consultantsAlerte.length+' consultant'+(consultantsAlerte.length>1?'s':'')+' sous 4%',consultantsAlerte.length+' porté'+(consultantsAlerte.length>1?'s':''),consultantsAlerte.map(c=>c.nom+' ('+c.moy?.toFixed(1)+'%)').join(', ')+'. Marge insuffisante.','Vérifier TJM et coûts associés'));
-  if(monthly.length>=3&&trendMp<-0.5) alertes.push(card('urgent','Tendance','ax-pill-red','Marge globale en baisse',trendMp.toFixed(1)+'%/mois','La marge moyenne se dégrade mois après mois. Sans action, elle atteindra 0% dans '+Math.round(moyMp/Math.abs(trendMp))+' mois.','Identifier les consultants qui tirent la marge vers le bas'));
-  if(monthly.length>=2&&fluxNet<-2) alertes.push(card('urgent','Portefeuille','ax-pill-red','Portefeuille en contraction',fluxNet+' net','Plus de consultants sortants qu\'entrants sur la période. '+totalSortants+' départs pour '+totalEntrants+' arrivées.','Renforcer le recrutement ou réactiver les anciens portés'));
-  if(!alertes.length) alertes.push(card('ok','Aucune alerte','ax-pill-green','Pas d\'alerte prioritaire','','Aucune situation critique détectée sur la période analysée.','Continuer le suivi mensuel'));
+
+  // 1. Consultants en perte absolue significative (top 8 par perte €)
+  const enPerte = cStats.filter(c=>c.margeSum<0).sort((a,b)=>a.margeSum-b.margeSum);
+  if(enPerte.length){
+    const top = enPerte.slice(0,8);
+    const totalPerte = enPerte.reduce((s,c)=>s+c.margeSum,0);
+    alertes.push(card('urgent','Pertes financières réelles','Urgent',
+      enPerte.length+' consultant'+(enPerte.length>1?'s':''),
+      '<b>Perte totale : -'+fmt(-totalPerte)+' €</b><br>'+
+      top.map(c=>'<span class="ax-name">'+c.nom+'</span> <span class="ax-neg">-'+fmt(-c.margeSum)+'€</span> ('+c.nMoisActifs+' mois, '+c.commercial+')').join('<br>'),
+      'Revoir le TJM ou les conditions contractuelles en priorité'
+    ));
+  }
+
+  // 2. Clients déficitaires
+  const cliDeficit = cliStats.filter(c=>c.marge<0).sort((a,b)=>a.marge-b.marge);
+  if(cliDeficit.length){
+    const top = cliDeficit.slice(0,5);
+    alertes.push(card('urgent','Clients déficitaires','Client',
+      cliDeficit.length+' client'+(cliDeficit.length>1?'s':''),
+      top.map(c=>'<span class="ax-name">'+c.nom+'</span> <span class="ax-neg">-'+fmt(-c.marge)+'€</span> ('+c.nPortes+' portés)').join('<br>'),
+      'Analyser les conditions tarifaires avec ces clients'
+    ));
+  }
+
+  // 3. Commerciaux avec >40% de portefeuille en alerte
+  const commSousPerf = commStats.filter(c=>c.pctAlerte>=40&&c.consultants.length>=5);
+  if(commSousPerf.length){
+    alertes.push(card('urgent','Portefeuilles commerciaux à risque','Commercial',
+      commSousPerf.length+' commercial'+(commSousPerf.length>1?'s':''),
+      commSousPerf.map(c=>'<span class="ax-name">'+c.nom+'</span> : '+Math.round(c.pctAlerte)+'% en alerte ('+c.nAlerte+'/'+c.consultants.length+')').join('<br>'),
+      'Faire un point individuel sur les dossiers en difficulté'
+    ));
+  }
 
   // ── POINTS DE VIGILANCE ──
-  const vigilance=[];
-  if(monthly.length>=2&&enBaisse.length>0) vigilance.push(card('warning','À surveiller','ax-pill-amber','Marge en baisse chez '+enBaisse.length+' porté'+(enBaisse.length>1?'s':''),'',enBaisse.map(c=>c.nom+' (↘'+Math.abs(c.trend).toFixed(1)+'%/mois)').join(', ')+'. Encore dans la cible mais tendance négative.','Planifier un suivi individuel dans les 30 jours'));
-  // Avec 1 seul mois — signaler les consultants entre 4% et 6%
-  if(monthly.length===1){const fragiles=cStats.filter(c=>c.moy!==null&&c.moy>=4&&c.moy<6);if(fragiles.length>0)vigilance.push(card('warning','Marge fragile','ax-pill-amber','Consultants avec marge entre 4% et 6%',fragiles.length+' consultant'+(fragiles.length>1?'s':''),fragiles.map(c=>c.nom+' ('+c.moy.toFixed(1)+'%)').join(', ')+'. Dans la cible mais peu de marge de manœuvre.','Surveiller la stabilité sur les prochains mois'));}
-  if(totBP>0) vigilance.push(card('warning','BP à zéro','ax-pill-amber','Coûts sans facturation',totBP+' occurrence'+(totBP>1?'s':''),'Des consultants ont un coût enregistré sans aucune facturation associée. Vérifier si ce sont des erreurs ou des absences.','Régulariser ou retirer ces consultants du fichier'));
-  if(moyPortes<5&&monthly.length>=3) vigilance.push(card('warning','Volume','ax-pill-amber','Portefeuille de portés faible',Math.round(moyPortes)+' en moyenne/mois','Un portefeuille réduit fragilise la stabilité des revenus et augmente l\'impact d\'un seul départ.','Objectif : atteindre '+Math.ceil(moyPortes*1.3)+' portés actifs mensuels'));
-  if(dernierMois&&dernierMois.mp<4&&dernierMois.mp>=0) vigilance.push(card('warning','Dernier mois','ax-pill-amber','Marge insuffisante ce mois',dernierMois.mp.toFixed(1)+'%','La marge du dernier mois enregistré est en dessous du seuil cible de 4%. Cela peut indiquer un problème ponctuel ou le début d\'une tendance.','Analyser les consultants du mois et comparer au mois précédent'));
-  if(trendPortes<-0.3&&monthly.length>=3) vigilance.push(card('warning','Tendance','ax-pill-amber','Nombre de portés en baisse',trendPortes.toFixed(1)+' porté/mois','Le portefeuille se réduit progressivement. Si la tendance se confirme, le CA sera impacté dans les prochains mois.','Mettre en place une action commerciale pour compenser les sorties'));
-  if(!vigilance.length) vigilance.push(card('ok','RAS','ax-pill-green','Pas de point de vigilance','','Aucun signal faible détecté sur la période.',''));
+
+  // 4. Consultants >6 mois actifs avec marge structurellement <4%
+  const structFaible = cStats.filter(c=>c.nMoisActifs>=6&&c.moy!==null&&c.moy<4&&c.moy>=0)
+    .sort((a,b)=>a.moy-b.moy).slice(0,10);
+  if(structFaible.length){
+    vigilance.push(card('warning','Marge structurellement faible','Structurel',
+      structFaible.length+' consultant'+(structFaible.length>1?'s':''),
+      'Actifs depuis 6+ mois, toujours sous 4% :<br>'+
+      structFaible.map(c=>'<span class="ax-name">'+c.nom+'</span> '+fmtPct(c.moy)+' ('+c.nMoisActifs+' mois)').join('<br>'),
+      'Revaloriser le TJM lors du prochain renouvellement'
+    ));
+  }
+
+  // 5. TJM stagnant alors que les coûts augmentent
+  const tjmStagnant = cStats.filter(c=>{
+    const tjms = months.map(m=>c.mois[m]?.tjm).filter(v=>v>0);
+    const couts= months.map(m=>c.mois[m]?.cout).filter(v=>v>0);
+    return tjms.length>=3 && Math.abs(linReg(tjms))<5 && linReg(couts)>50 && c.moy!==null && c.moy<6;
+  }).slice(0,8);
+  if(tjmStagnant.length){
+    vigilance.push(card('warning','TJM figé, coûts en hausse','TJM',
+      tjmStagnant.length+' cas',
+      tjmStagnant.map(c=>'<span class="ax-name">'+c.nom+'</span> TJM '+Math.round(c.tjmMoy)+'€ · marge '+fmtPct(c.moy||0)).join('<br>'),
+      'Négocier une revalorisation tarifaire'
+    ));
+  }
+
+  // 6. Clients mono-consultant (risque de dépendance)
+  const cliMono = cliStats.filter(c=>c.nPortes===1&&c.nMois>=3&&c.ca>20000)
+    .sort((a,b)=>b.ca-a.ca).slice(0,8);
+  if(cliMono.length){
+    vigilance.push(card('warning','Clients mono-consultant','Risque',
+      cliMono.length+' client'+(cliMono.length>1?'s':''),
+      cliMono.map(c=>'<span class="ax-name">'+c.nom+'</span> '+fmt(c.ca)+'€ CA · 1 seul porté').join('<br>'),
+      'Proposer un 2ème profil pour sécuriser la relation client'
+    ));
+  }
+
+  // 7. BP zéro (coût sans facturation)
+  const totBP = yd.reduce((s,d)=>s+d.results.filter(r=>r.type==='bp_zero').length,0);
+  if(totBP>10){
+    vigilance.push(card('warning','Coûts sans facturation','BP zéro',
+      totBP+' occurrences',
+      'Des consultants ont un coût enregistré sans facturation associée.',
+      'Vérifier si ce sont des absences, congés ou erreurs de fichier'
+    ));
+  }
 
   // ── POINTS POSITIFS ──
-  const positifs=[];
-  if(superperfs.length>0) positifs.push(card('ok','Surperf','ax-pill-green','Consultants en surperformance',superperfs.length+' consultant'+(superperfs.length>1?'s':''),`${superperfs.map(c=>c.nom+' ('+c.moy?.toFixed(1)+'%)').join(', ')}. Marge supérieure à 9%.`,'Analyser leur profil pour dupliquer les conditions favorables'));
-  if(enHausse.length>0) positifs.push(card('ok','Progression','ax-pill-green','Consultants en progression',enHausse.length+' en hausse',`${enHausse.map(c=>c.nom+' (↗'+c.trend.toFixed(1)+'%/mois)').join(', ')}. Tendance positive et dans la cible.`,'Capitaliser sur ce dynamisme — bon moment pour renforcer la relation'));
-  if(monthly.length>=2&&trendPortes>0.3) positifs.push(card('ok','Croissance','ax-pill-green','Portefeuille en expansion','+'+trendPortes.toFixed(1)+' porté/mois','Le nombre de consultants facturés progresse régulièrement. La diversification réduit la dépendance à chaque contrat.','Maintenir l\'effort commercial actuel'));
-  if(monthly.length>=2&&fluxNet>0) positifs.push(card('ok','Flux net','ax-pill-green','Solde entrants positif','+'+fluxNet+' net',totalEntrants+' nouveaux portés pour '+totalSortants+' sorties sur la période.',''));
-  if(moyMp>=6&&moyMp<=9) positifs.push(card('ok','Marge cible','ax-pill-green','Marge dans la cible',moyMp.toFixed(1)+'%','La marge moyenne est dans la plage cible de 4–9%. L\'équilibre coût/facturation est sain.','Maintenir et surveiller les dérives individuelles'));
-  // Avec 1 seul mois — donner un état des lieux immédiat
-  if(monthly.length===1){
-    const m1=monthly[0];
-    const mpC=m1.mp>=6?'ok':m1.mp>=4?'warning':'urgent';
-    positifs.push(card(mpC,m1.mp>=6?'Bon démarrage':m1.mp>=4?'Dans la cible':'Sous la cible','ax-pill-'+(m1.mp>=6?'green':m1.mp>=4?'amber':'red'),
-      'Marge du mois : '+m1.mp.toFixed(1)+'%',m1.mp.toFixed(1)+'%',
-      'CA : '+Math.round(m1.ca).toLocaleString('fr-FR')+' € · Coût : '+Math.round(m1.cout).toLocaleString('fr-FR')+' € · '+cStats.filter(c=>c.moy!==null).length+' consultants analysés.',
-      'Importer les mois suivants pour obtenir des tendances et recommandations détaillées'));
+
+  // 8. Top commerciaux par marge générée
+  const topComm = commStats.filter(c=>c.margeSum>0).sort((a,b)=>b.margeSum-a.margeSum).slice(0,3);
+  if(topComm.length){
+    positifs.push(card('ok','Top commerciaux par marge','Performance',
+      topComm[0].nom,
+      topComm.map((c,i)=>['🥇','🥈','🥉'][i]+' <span class="ax-name">'+c.nom+'</span> '+fmt(c.margeSum)+'€ marge ('+c.margePct.toFixed(1)+'% · '+c.consultants.length+' portés)').join('<br>'),
+      'Analyser les pratiques de ces commerciaux pour les reproduire'
+    ));
   }
-  if(!positifs.length&&monthly.length>1) positifs.push(card('info','Neutre','ax-pill-blue','Pas de signal positif fort','','Pas encore assez de données ou de dynamique positive clairement identifiable.','Continuez à enregistrer les mois pour affiner l\'analyse'));
+
+  // 9. Secteurs les plus rentables
+  const sectData={};
+  yd.forEach(d=>d.results.filter(r=>r.type==='matched').forEach(r=>{
+    const s=(r._secteur||'IT'); if(!sectData[s])sectData[s]={ca:0,marge:0};
+    sectData[s].ca+=r.facture||0; sectData[s].marge+=r.margeEur||0;
+  }));
+  const topSect = Object.entries(sectData)
+    .map(([s,d])=>({s,pct:d.ca>0?d.marge/d.ca*100:0,marge:d.marge,ca:d.ca}))
+    .filter(d=>d.ca>50000&&d.pct>5).sort((a,b)=>b.pct-a.pct).slice(0,4);
+  if(topSect.length){
+    positifs.push(card('ok','Secteurs les plus rentables','Secteur',
+      topSect[0].s+' '+topSect[0].pct.toFixed(1)+'%',
+      topSect.map(d=>'<span class="ax-name">'+d.s+'</span> '+d.pct.toFixed(1)+'% marge · '+fmt(d.ca)+'€ CA').join('<br>'),
+      'Prioriser le recrutement dans ces secteurs'
+    ));
+  }
+
+  // 10. Consultants avec TJM ET marge en hausse = profil idéal
+  const profitables = cStats.filter(c=>c.nMoisActifs>=3&&c.moy>=6&&c.trend>0.3&&c.tjmTrend>=0)
+    .sort((a,b)=>b.margeSum-a.margeSum).slice(0,6);
+  if(profitables.length){
+    positifs.push(card('ok','Profils les plus rentables','Idéal',
+      profitables.length+' consultant'+(profitables.length>1?'s':''),
+      profitables.map(c=>'<span class="ax-name">'+c.nom+'</span> '+fmtPct(c.moy)+' · TJM '+Math.round(c.tjmMoy)+'€ · '+fmt(c.margeSum)+'€').join('<br>'),
+      'Ces profils sont le modèle à dupliquer commercialement'
+    ));
+  }
+
+  // 11. Clients en forte croissance de portés
+  const cliCroiss = cliStats.filter(c=>c.nMois>=2&&c.nPortes>=3&&c.margePct>4)
+    .sort((a,b)=>b.nPortes-a.nPortes).slice(0,5);
+  if(cliCroiss.length){
+    positifs.push(card('ok','Clients à développer','Opportunité',
+      cliCroiss.length+' client'+(cliCroiss.length>1?'s':''),
+      cliCroiss.map(c=>'<span class="ax-name">'+c.nom+'</span> '+c.nPortes+' portés · '+fmt(c.ca)+'€ CA · '+c.margePct.toFixed(1)+'%').join('<br>'),
+      'Renforcer la relation et proposer de nouveaux profils'
+    ));
+  }
 
   // ── RECOMMANDATIONS ──
-  const recommandations=[];
-  const nConsultants=Object.keys(cmap).length;
-  if(nConsultants>=3) recommandations.push(card('info','Structure','ax-pill-blue','Concentration du CA','',(()=>{const sorted=Object.keys(cmap);const top3CA=sorted.map(n=>{const total=months.reduce((s,m)=>s+(cmap[n][m]?.facture||0),0);return{n,total};}).sort((a,b)=>b.total-a.total).slice(0,3);const top3sum=top3CA.reduce((s,c)=>s+c.total,0);const pct=totCA>0?Math.round(top3sum/totCA*100):0;return`Les 3 consultants les plus facturés représentent ${pct}% du CA total. ${pct>70?'Niveau de concentration élevé — risque si l\'un d\'eux part.':'Bonne diversification du CA.'}`})(),'Viser un portefeuille équilibré sans dépendance > 30% par consultant'));
-  recommandations.push(card('info','Saisonnalité','ax-pill-blue','Analyser la saisonnalité','','Identifiez vos mois creux (juillet-août, décembre) pour anticiper les baisses de CA et planifier des actions commerciales en amont.','Comparer mois N vs mois N-1 dans l\'historique'));
-  if(totBP===0&&moyMp>5) recommandations.push(card('info','Optimisation','ax-pill-blue','Optimisation tarifaire','','Votre taux de marge est sain. C\'est le bon moment pour tester une légère revalorisation tarifaire sur les nouveaux contrats, sans toucher aux contrats en cours.','Tester +2% sur les prochains renouvellements'));
-  recommandations.push(card('info','Suivi','ax-pill-blue','Cadence de suivi recommandée','','Pour une détection précoce des décrochages, enregistrez chaque mois dès la réception des fichiers. 2 mois de retard rendent les alertes moins fiables.','Objectif : import mensuel avant le 15 du mois suivant'));
 
-  document.getElementById('ax-alertes').innerHTML       = alertes.join('');
-  document.getElementById('ax-vigilance').innerHTML     = vigilance.join('');
-  document.getElementById('ax-positifs').innerHTML      = positifs.join('');
-  document.getElementById('ax-recommandations').innerHTML = recommandations.join('');
+  // 12. Benchmarking commerciaux
+  if(commStats.length>=3){
+    const moyCommMp = commStats.reduce((s,c)=>s+c.margePct,0)/commStats.length;
+    const sousPerf = commStats.filter(c=>c.margePct<moyCommMp-2&&c.consultants.length>=3);
+    if(sousPerf.length){
+      recommandations.push(card('info','Commerciaux sous la moyenne équipe','Benchmark',
+        sousPerf.length+' commercial'+(sousPerf.length>1?'s':''),
+        'Moyenne équipe : '+moyCommMp.toFixed(1)+'%<br>'+
+        sousPerf.map(c=>'<span class="ax-name">'+c.nom+'</span> '+c.margePct.toFixed(1)+'% ('+c.consultants.length+' portés)').join('<br>'),
+        'Accompagnement sur la négociation tarifaire'
+      ));
+    }
+  }
+
+  // 13. Consultants >12 mois sans revalorisation TJM
+  const sansTjmRevalo = cStats.filter(c=>{
+    const tjms = months.map(m=>c.mois[m]?.tjm).filter(v=>v>0);
+    return c.nMoisActifs>=12 && tjms.length>=3 && linReg(tjms)<5 && (c.moy||0)<7;
+  }).sort((a,b)=>b.nMoisActifs-a.nMoisActifs).slice(0,8);
+  if(sansTjmRevalo.length){
+    recommandations.push(card('info','TJM non revalorisé depuis 12+ mois','Revalorisation',
+      sansTjmRevalo.length+' consultant'+(sansTjmRevalo.length>1?'s':''),
+      sansTjmRevalo.map(c=>'<span class="ax-name">'+c.nom+'</span> '+Math.round(c.tjmMoy)+'€/j · '+c.nMoisActifs+' mois').join('<br>'),
+      'Proposer une revalorisation TJM au client'
+    ));
+  }
+
+  // 14. Concentration risque par commercial
+  commStats.forEach(cm=>{
+    const top1 = cm.consultants.sort((a,b)=>b.caSum-a.caSum)[0];
+    if(top1 && cm.caSum>0 && top1.caSum/cm.caSum>0.35){
+      recommandations.push(card('info','Concentration portefeuille','Risque '+cm.nom,
+        Math.round(top1.caSum/cm.caSum*100)+'% sur 1 consultant',
+        '<span class="ax-name">'+cm.nom+'</span> : '+Math.round(top1.caSum/cm.caSum*100)+'% du CA porté par <span class="ax-name">'+top1.nom+'</span> ('+fmt(top1.caSum)+'€)',
+        'Diversifier le portefeuille de '+cm.nom
+      ));
+    }
+  });
+
+  // ── Rendu ──
+  function renderCards(cards, containerId){
+    const el = document.getElementById(containerId);
+    if(!el) return;
+    if(!cards.length){
+      el.innerHTML = '<p style="color:var(--text3);font-size:13px;padding:12px 0">Aucun élément détecté.</p>';
+      return;
+    }
+    const typeColors = {urgent:'#DC2626',warning:'#D97706',ok:'#0E9F6E',info:'#2563EB'};
+    const typeBg    = {urgent:'#FEF2F2',warning:'#FFFBEB',ok:'#ECFDF5',info:'#EFF6FF'};
+    const typeBord  = {urgent:'#FCA5A5',warning:'#FCD34D',ok:'#6EE7B7',info:'#93C5FD'};
+    el.innerHTML = '<div class="ax-grid">'+cards.map(c=>`
+      <div class="ax-card" style="border-color:${typeBord[c.type]};background:${typeBg[c.type]}">
+        <div class="ax-card-header">
+          <span class="ax-card-title">${c.titre}</span>
+          <span class="ax-badge" style="background:${typeColors[c.type]}22;color:${typeColors[c.type]}">${c.badge}</span>
+        </div>
+        <div class="ax-card-val" style="color:${typeColors[c.type]}">${c.valeur}</div>
+        <div class="ax-card-detail">${c.detail}</div>
+        ${c.action?`<div class="ax-card-action">→ ${c.action}</div>`:''}
+      </div>`).join('')+'</div>';
+  }
+
+  renderCards(alertes,       'ax-alertes');
+  renderCards(vigilance,     'ax-vigilance');
+  renderCards(positifs,      'ax-positifs');
+  renderCards(recommandations,'ax-recommandations');
 }
 
-
-// ======== ANALYSE CLIENT ========
-let _clCharts = {};
 
 function clTab(name, btn) {
   document.querySelectorAll('.cl-section').forEach(s => s.classList.remove('active'));
