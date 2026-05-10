@@ -2400,9 +2400,15 @@ function openFicheClient(nomClient) {
       '<td style="text-align:right;font-family:var(--mono);font-weight:600;'+mc2+'">'+m.margePct.toFixed(1)+'%</td>'+
     '</tr>';
   }).join('');
+  var cc2 = document.getElementById('fid-cli-content');
+  if(cc2) cc2.style.display = 'none';
   document.getElementById('fid-cli-fiche').style.display = 'flex';
 }
-function closeFicheClient() { document.getElementById('fid-cli-fiche').style.display = 'none'; }
+function closeFicheClient() {
+  document.getElementById('fid-cli-fiche').style.display = 'none';
+  var cc3 = document.getElementById('fid-cli-content');
+  if(cc3) cc3.style.display = 'block';
+}
 
 function showClientsInactifs() {
   var data = buildFidCliData();
@@ -2768,6 +2774,8 @@ function getCliSegment(anciennete) {
 }
 
 function renderFideliteClients() {
+  var cc = document.getElementById('fid-cli-content');
+  if(cc && cc.style.display === 'none') cc.style.display = 'block';
   // S'assurer que le contenu est visible
   var cc = document.getElementById('fid-cli-content');
   if(cc) cc.style.display = 'block';
@@ -2827,6 +2835,7 @@ function renderFideliteClients() {
   }
 
   // Tableau
+  console.log('[FID-CLI] data:', data.length, 'filtered:', filtered.length);
   var tbody = document.getElementById('fid-cli-tbody');
   if(!tbody) return;
   if(!filtered.length){
@@ -2845,8 +2854,6 @@ function renderFideliteClients() {
 
     var ancBadgeColor = c.anciennete>=24?'var(--brand)':c.anciennete>=12?'var(--success)':'var(--muted)';
     var barW = maxCA>0 ? Math.round(c.caTotal/maxCA*80) : 0;
-
-    var nomEnc = c.nom.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     return '<tr style="cursor:pointer" data-clinomenc="'+nomEnc+'">'+'<td>'+
         '<div style="font-weight:600">'+c.nom+'</div>'+
         '<div style="height:4px;background:var(--border);border-radius:2px;margin-top:4px;width:120px;overflow:hidden">'+
