@@ -2731,7 +2731,7 @@ function renderFideliteConsultants() {
   tbody.innerHTML = filtered.map(function(c){
     var nomEnc = c.nom.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     var segColor = c.segment==='0-3'?'#DC2626':c.segment==='3-6'?'#D97706':c.segment==='6-12'?'#2563EB':'var(--brand)';
-    return '<tr data-clinomenc="'+nomEnc+'" style="cursor:pointer">'+
+    return '<tr data-consnomenc="'+nomEnc+'" style="cursor:pointer">'+
       '<td><div style="font-weight:600">'+c.nom+'</div>'+
         (c.commercial?'<div style="font-size:11px;color:var(--muted)">'+c.commercial+'</div>':'')+
       '</td>'+
@@ -2751,14 +2751,15 @@ function renderFideliteConsultants() {
       '</td>'+
     '</tr>';
   }).join('');
-  document.querySelectorAll('#fid-cli-tbody tr[data-clinomenc]').forEach(function(row) {
+  document.querySelectorAll('#fid-cons-tbody tr[data-consnomenc]').forEach(function(row) {
     row.addEventListener('click', function() {
-      var n = row.getAttribute('data-clinomenc').replace(/&amp;/g,'&').replace(/&quot;/g,'"');
-      openFicheClient(n);
+      var n = row.getAttribute('data-consnomenc').replace(/&amp;/g,'&').replace(/&quot;/g,'"');
+      openFicheConsultant(n);
     });
   });
 }
 
+var _fidCliSeg = '';
 function fidCliSetSeg(btn, seg) {
   _fidCliSeg = seg;
   document.querySelectorAll('#fid-cli-seg-filters .filter-btn').forEach(function(b){ b.classList.remove('active'); });
@@ -2835,7 +2836,6 @@ function renderFideliteClients() {
   }
 
   // Tableau
-  console.log('[FID-CLI] data:', data.length, 'filtered:', filtered.length);
   var tbody = document.getElementById('fid-cli-tbody');
   if(!tbody) return;
   if(!filtered.length){
