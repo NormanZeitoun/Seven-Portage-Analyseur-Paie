@@ -285,6 +285,7 @@ select {
   .header, .nav-tabs { padding:0 16px; }
   .mapping-rows { grid-template-columns:1fr; }
 }
+.fiche-inner{background:var(--surface);border-radius:var(--radius);width:900px;max-width:98vw;box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative}
 </style>
   <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
 </head>
@@ -1645,92 +1646,6 @@ select {
 </div>
 <!-- ======== FIN TAB FIDÉLITÉ ======== -->
 
-<!-- ======== FICHE CONSULTANT ======== -->
-<div id="rent-fiche" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 16px;backdrop-filter:blur(4px)">
-  <div class="fiche-inner">
-    <button class="fiche-close" onclick="closeFicheConsultant()">✕</button>
-    <div class="fiche-header">
-      <div class="fiche-name" id="fiche-nom">—</div>
-      <div class="fiche-meta" id="fiche-meta"></div>
-    </div>
-    <div class="fiche-body">
-      <div class="fiche-kpis" id="fiche-kpis"></div>
-      <div class="fiche-section">
-        <div class="fiche-section-title">Évolution CA &amp; Marge</div>
-        <div class="fiche-chart" id="fiche-chart"></div>
-      </div>
-      <div class="fiche-section">
-        <div class="fiche-section-title">Détail mois par mois</div>
-        <table class="fiche-mois-tbl">
-          <thead><tr>
-            <th>Mois</th>
-            <th style="text-align:right">CA facturé</th>
-            <th style="text-align:right">Coût global</th>
-            <th style="text-align:right">Marge €</th>
-            <th style="text-align:right">Marge %</th>
-            <th style="text-align:right">TJM</th>
-            <th>Client</th>
-            <th>Statut</th>
-          </tr></thead>
-          <tbody id="fiche-mois-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-</div>
-
-
-<!-- ======== FICHE CLIENT ======== -->
-<div id="fid-cli-fiche" style="display:none;margin-top:16px">
-  <div class="fiche-inner">
-    <button class="fiche-close" onclick="closeFicheClient()">&#10005;</button>
-    <div class="fiche-header" style="background:linear-gradient(135deg,#1E40AF,#2563EB)">
-      <div class="fiche-name" id="fid-cli-fiche-nom">&#8212;</div>
-      <div class="fiche-meta" id="fid-cli-fiche-meta"></div>
-    </div>
-    <div class="fiche-body">
-      <div class="fiche-kpis" id="fid-cli-fiche-kpis"></div>
-      <div class="fiche-section">
-        <div class="fiche-section-title">Evolution des portes actifs</div>
-        <div class="fiche-chart" id="fid-cli-chart"></div>
-      </div>
-      <div class="fiche-section">
-        <div class="fiche-section-title">Detail mois par mois</div>
-        <table class="fiche-mois-tbl"><thead><tr>
-          <th>Mois</th><th style="text-align:right">Portes actifs</th>
-          <th style="text-align:right">CA facture</th>
-          <th style="text-align:right">Marge</th>
-          <th style="text-align:right">Marge %</th>
-        </tr></thead><tbody id="fid-cli-fiche-tbody"></tbody></table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ======== CLIENTS INACTIFS ======== -->
-<div id="fid-inactifs-panel" style="display:none;margin-top:16px">
-  <div class="fiche-inner" style="max-width:800px">
-    <button class="fiche-close" onclick="document.getElementById('fid-inactifs-panel').style.display='none';document.getElementById('fid-cli-content').style.display='block'" style="background:rgba(0,0,0,.15);color:var(--text)">&#10005;</button>
-    <div style="padding:20px 24px;border-bottom:1px solid var(--border)">
-      <div style="font-size:17px;font-weight:700;margin-bottom:3px">Clients inactifs</div>
-      <div style="font-size:12px;color:var(--muted)" id="fid-inactifs-subtitle"></div>
-    </div>
-    <div style="padding:16px 24px">
-      <table class="fiche-mois-tbl" id="fid-inactifs-tbl">
-        <thead><tr>
-          <th>Client</th><th style="text-align:center">Inactif depuis</th>
-          <th style="text-align:center">Duree relation</th>
-          <th style="text-align:right">Portes totaux</th>
-          <th style="text-align:right">CA genere</th>
-          <th style="text-align:right">Marge generee</th>
-        </tr></thead>
-        <tbody id="fid-inactifs-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
 <script>
 const STORAGE_KEY = 'seven_portage_paie_v3';
 const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -2485,7 +2400,7 @@ function openFicheClient(nomClient) {
       '<td style="text-align:right;font-family:var(--mono);font-weight:600;'+mc2+'">'+m.margePct.toFixed(1)+'%</td>'+
     '</tr>';
   }).join('');
-  document.getElementById('fid-cli-fiche').style.display = 'block';
+  document.getElementById('fid-cli-fiche').style.display = 'flex';
 }
 function closeFicheClient() { document.getElementById('fid-cli-fiche').style.display = 'none'; }
 
@@ -2515,7 +2430,7 @@ function showClientsInactifs() {
   tbody.querySelectorAll('tr[data-clinomenc]').forEach(function(row){
     row.addEventListener('click', function(){
       var n = row.getAttribute('data-clinomenc').replace(/&amp;/g,'&').replace(/&quot;/g,'"');
-      document.getElementById('fid-inactifs-panel').style.display='none';document.getElementById('fid-cli-content').style.display='block';
+      document.getElementById('fid-inactifs-panel').style.display='none';
       openFicheClient(n);
     });
   });
@@ -2853,6 +2768,9 @@ function getCliSegment(anciennete) {
 }
 
 function renderFideliteClients() {
+  // S'assurer que le contenu est visible
+  var cc = document.getElementById('fid-cli-content');
+  if(cc) cc.style.display = 'block';
   var data = buildFidCliData();
   var search = (document.getElementById('fid-cli-search')||{}).value || '';
   var filtered = data.filter(function(c){
@@ -2861,25 +2779,7 @@ function renderFideliteClients() {
     return true;
   });
   filtered.sort(function(a,b){ return b.caTotal - a.caTotal; });
-  var statsEl = document.getElementById('fid-cli-seg-stats');
-  if(statsEl) {
-    if(_fidCliSeg) {
-      var segCA=filtered.reduce(function(s,c){return s+c.caTotal;},0);
-      var segMarge=filtered.reduce(function(s,c){return s+(c.margeTotal||0);},0);
-      var segPortes=filtered.reduce(function(s,c){return s+c.portesTotaux;},0);
-      var segPct=segCA>0?(segMarge/segCA*100):0;
-      var mc=segPct<0?'color:var(--danger)':segPct<4?'color:var(--warn)':'color:var(--ok)';
-      var segLabels={nouveau:'Nouveau',en_cours:'En dev.',fidele:'Fidele',historique:'Historique'};
-      statsEl.style.display='flex';
-      statsEl.innerHTML='<b style="color:var(--brand)">'+(segLabels[_fidCliSeg]||_fidCliSeg)+'</b>'
-        +'<span>'+filtered.length+' client'+(filtered.length>1?'s':'')+'</span>'
-        +'<span style="width:1px;height:14px;background:var(--border);display:inline-block"></span>'
-        +'<span>'+segPortes+' portes</span>'
-        +'<span>CA <b>'+Math.round(segCA).toLocaleString('fr-FR')+' EUR</b></span>'
-        +'<span>Marge <b style="'+mc+'">'+Math.round(segMarge).toLocaleString('fr-FR')+' EUR ('+segPct.toFixed(1)+'%)</b></span>';
-    } else { statsEl.style.display='none'; }
-  }
-  // Stats barre
+    // Stats barre
   var statsEl = document.getElementById('fid-cli-seg-stats');
   if(statsEl) {
     if(_fidCliSeg) {
@@ -3245,8 +3145,46 @@ function renderRentabilite() {
     return true;
   });
 
+  // Recalculer caTotal/margeTotal par année si filtre actif
+  if(yearFilter) {
+    filtered = filtered.map(function(c) {
+      var actifsFiltres = (c.actifs||[]).filter(function(m){ return m.mois.startsWith(yearFilter); });
+      var caAn    = actifsFiltres.reduce(function(s,m){ return s+m.ca; }, 0);
+      var margeAn = actifsFiltres.reduce(function(s,m){ return s+(m.marge||0); }, 0);
+      var pctAn   = caAn > 0 ? (margeAn/caAn*100) : 0;
+      var tjmsAn  = actifsFiltres.filter(function(m){ return m.tjm>0; });
+      var tjmAn   = tjmsAn.length ? tjmsAn.reduce(function(s,m){ return s+m.tjm; },0)/tjmsAn.length : c.tjmMoy;
+      // Recalculer statut sur l'année
+      var statutAn = pctAn < 0 ? 'alerte' : pctAn < 4 ? 'insuffisant' : pctAn <= 9 ? 'ok' : 'superperf';
+      if(!actifsFiltres.length) statutAn = c.statut;
+      return Object.assign({}, c, {
+        caTotal: caAn, margeTotal: margeAn, margePctMoy: pctAn,
+        tjmMoy: tjmAn, statut: statutAn,
+        moisActifs: actifsFiltres.length,
+        actifs: actifsFiltres
+      });
+    });
+  }
+
   // Tri
-  var col = _rentSort.col;
+   // Recalculer caTotal/margeTotal sur l'annee filtree uniquement
+  if(yearFilter) {
+    filtered = filtered.map(function(c) {
+      var af = (c.actifs||[]).filter(function(m){ return m.mois.startsWith(yearFilter); });
+      var caAn    = af.reduce(function(s,m){ return s+m.ca; }, 0);
+      var margeAn = af.reduce(function(s,m){ return s+(m.marge||0); }, 0);
+      var pctAn   = caAn > 0 ? (margeAn/caAn*100) : 0;
+      var tjmsAn  = af.filter(function(m){ return (m.tjm||0)>0; });
+      var tjmAn   = tjmsAn.length ? tjmsAn.reduce(function(s,m){ return s+m.tjm; },0)/tjmsAn.length : c.tjmMoy;
+      var statAn  = pctAn<0?'alerte':pctAn<4?'insuffisant':pctAn<=9?'ok':'superperf';
+      return Object.assign({}, c, {
+        caTotal:caAn, margeTotal:margeAn, margePctMoy:pctAn,
+        tjmMoy:tjmAn, statut:statAn, moisActifs:af.length, actifs:af
+      });
+    });
+  }
+
+   var col = _rentSort.col;
   filtered.sort(function(a,b) {
     var va = a[col], vb = b[col];
     if(typeof va === 'string') va = va.toLowerCase();
@@ -6816,5 +6754,93 @@ function pilDrawCharts(monthly, months, objM, entrants, sortants, cmap, MFS){
 
 
 </script>
+
+
+<!-- ======== FICHE CONSULTANT ======== -->
+<div id="rent-fiche" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 16px;backdrop-filter:blur(4px)">
+  <div class="fiche-inner">
+    <button class="fiche-close" onclick="closeFicheConsultant()">✕</button>
+    <div class="fiche-header">
+      <div class="fiche-name" id="fiche-nom">—</div>
+      <div class="fiche-meta" id="fiche-meta"></div>
+    </div>
+    <div class="fiche-body">
+      <div class="fiche-kpis" id="fiche-kpis"></div>
+      <div class="fiche-section">
+        <div class="fiche-section-title">Évolution CA &amp; Marge</div>
+        <div class="fiche-chart" id="fiche-chart"></div>
+      </div>
+      <div class="fiche-section">
+        <div class="fiche-section-title">Détail mois par mois</div>
+        <table class="fiche-mois-tbl">
+          <thead><tr>
+            <th>Mois</th>
+            <th style="text-align:right">CA facturé</th>
+            <th style="text-align:right">Coût global</th>
+            <th style="text-align:right">Marge €</th>
+            <th style="text-align:right">Marge %</th>
+            <th style="text-align:right">TJM</th>
+            <th>Client</th>
+            <th>Statut</th>
+          </tr></thead>
+          <tbody id="fiche-mois-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+
+<!-- ======== FICHE CLIENT ======== -->
+<div id="fid-cli-fiche" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 16px;backdrop-filter:blur(4px)">
+  <div class="fiche-inner">
+    <button class="fiche-close" onclick="closeFicheClient()">&#10005;</button>
+    <div class="fiche-header" style="background:linear-gradient(135deg,#1E40AF,#2563EB)">
+      <div class="fiche-name" id="fid-cli-fiche-nom">&#8212;</div>
+      <div class="fiche-meta" id="fid-cli-fiche-meta"></div>
+    </div>
+    <div class="fiche-body">
+      <div class="fiche-kpis" id="fid-cli-fiche-kpis"></div>
+      <div class="fiche-section">
+        <div class="fiche-section-title">Evolution des portes actifs</div>
+        <div class="fiche-chart" id="fid-cli-chart"></div>
+      </div>
+      <div class="fiche-section">
+        <div class="fiche-section-title">Detail mois par mois</div>
+        <table class="fiche-mois-tbl"><thead><tr>
+          <th>Mois</th><th style="text-align:right">Portes actifs</th>
+          <th style="text-align:right">CA facture</th>
+          <th style="text-align:right">Marge</th>
+          <th style="text-align:right">Marge %</th>
+        </tr></thead><tbody id="fid-cli-fiche-tbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======== CLIENTS INACTIFS ======== -->
+<div id="fid-inactifs-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 16px;backdrop-filter:blur(4px)">
+  <div class="fiche-inner" style="max-width:800px">
+    <button class="fiche-close" onclick="document.getElementById('fid-inactifs-panel').style.display='none'" style="background:rgba(0,0,0,.15);color:var(--text)">&#10005;</button>
+    <div style="padding:20px 24px;border-bottom:1px solid var(--border)">
+      <div style="font-size:17px;font-weight:700;margin-bottom:3px">Clients inactifs</div>
+      <div style="font-size:12px;color:var(--muted)" id="fid-inactifs-subtitle"></div>
+    </div>
+    <div style="padding:16px 24px">
+      <table class="fiche-mois-tbl" id="fid-inactifs-tbl">
+        <thead><tr>
+          <th>Client</th><th style="text-align:center">Inactif depuis</th>
+          <th style="text-align:center">Duree relation</th>
+          <th style="text-align:right">Portes totaux</th>
+          <th style="text-align:right">CA genere</th>
+          <th style="text-align:right">Marge generee</th>
+        </tr></thead>
+        <tbody id="fid-inactifs-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 
 >
