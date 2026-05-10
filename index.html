@@ -2402,7 +2402,9 @@ function openFicheClient(nomClient) {
   }).join('');
   var cc2 = document.getElementById('fid-cli-content');
   if(cc2) cc2.style.display = 'none';
-  document.getElementById('fid-cli-fiche').style.display = 'flex';
+  var ficheEl = document.getElementById('fid-cli-fiche');
+  if(ficheEl.parentNode !== document.body) document.body.appendChild(ficheEl);
+  ficheEl.style.display = 'flex';
 }
 function closeFicheClient() {
   document.getElementById('fid-cli-fiche').style.display = 'none';
@@ -2440,7 +2442,9 @@ function showClientsInactifs() {
       openFicheClient(n);
     });
   });
-  document.getElementById('fid-inactifs-panel').style.display = 'flex';
+  var inactEl = document.getElementById('fid-inactifs-panel');
+  if(inactEl.parentNode !== document.body) document.body.appendChild(inactEl);
+  inactEl.style.display = 'flex';
 }
 
 document.addEventListener('click', function(e) {
@@ -2998,6 +3002,8 @@ function openFicheConsultant(normNom) {
 
   // Afficher le modal
   var modal = document.getElementById('rent-fiche');
+  // Déplacer dans body pour échapper aux stacking contexts des onglets
+  if(modal.parentNode !== document.body) document.body.appendChild(modal);
   modal.style.display = 'flex';
   modal.scrollTop = 0;
 }
