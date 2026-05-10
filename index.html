@@ -305,6 +305,14 @@ select {
 .ax-link:hover { opacity:.75; }
 .ax-link-cli { color:#1E40AF; border-bottom-color:#1E40AF; }
 
+
+/* ── ONGLET CLIENT SECTIONS ── */
+.cl-section { display:none; }
+.cl-section.active { display:block; }
+.cl-tab { padding:5px 14px; border-radius:20px; font-size:12.5px; font-weight:500; border:1.5px solid var(--border); background:var(--surface); color:var(--text2); cursor:pointer; transition:all .15s; font-family:var(--font); }
+.cl-tab:hover { background:var(--brand-soft,#F2EFFE); color:var(--brand); }
+.cl-tab.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+
 </style>
   <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
 </head>
@@ -1043,7 +1051,8 @@ select {
       <div style="font-size:12px;color:var(--text2);margin-top:2px" id="pil-subtitle">—</div>
     </div>
     <select id="pil-year" onchange="buildDashboard()" style="padding:6px 10px;border:0.5px solid var(--border2);border-radius:6px;font-size:13px">
-      <option value="2024">2024</option><option value="2025">2025</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
+      <option value="all">🌐 Toutes les années</option>
+      <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
     </select>
   </div>
 
@@ -1102,6 +1111,20 @@ select {
     </summary>
     <div style="padding:12px 16px" id="pil-alertes"></div>
   </details>
+
+  <!-- Vue globale toutes années -->
+  <div id="pil-global" style="display:none;margin-top:24px">
+    <div style="font-size:13px;font-weight:700;margin-bottom:16px;color:var(--text)">Évolution annuelle</div>
+    <div id="pil-global-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="pil-card"><div class="pil-card-title">CA annuel</div><div class="pil-card-sub">Évolution du CA facturé par année</div><canvas id="pil-ch-global-ca" height="160"></canvas></div>
+      <div class="pil-card"><div class="pil-card-title">Marge % annuelle</div><div class="pil-card-sub">Taux de marge moyen par année</div><canvas id="pil-ch-global-marge" height="160"></canvas></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="pil-card"><div class="pil-card-title">Portés actifs</div><div class="pil-card-sub">Nombre de consultants facturés par année</div><canvas id="pil-ch-global-portes" height="160"></canvas></div>
+      <div class="pil-card"><div class="pil-card-title">Statuts par année</div><div class="pil-card-sub">Répartition OK / Insuffisant / Alerte</div><canvas id="pil-ch-global-statuts" height="160"></canvas></div>
+    </div>
+  </div>
 
 </div>
 </div>
@@ -5969,19 +5992,19 @@ function renderAxes() {
   }
   function fmt(n){return Math.round(n).toLocaleString('fr-FR');}
   function fmtPct(n){return (n>0?'+':'')+n.toFixed(1)+'%';}
-  var _axLinks=[]; var _axLinksReady=false;
+  var _axLinks=[];
   function lkCons(nom){
-    var idx=_axLinks.length;
+    var i=_axLinks.length;
     _axLinks.push({type:'cons',nom:nom});
-    return '<span class="ax-link" data-ax="'+idx+'">'+nom+'</span>';
+    return '<span class="ax-link" data-ax="'+i+'">'+nom+'</span>';
   }
   function lkCli(nom){
-    var idx=_axLinks.length;
+    var i=_axLinks.length;
     _axLinks.push({type:'cli',nom:nom});
-    return '<span class="ax-link ax-link-cli" data-ax="'+idx+'">'+nom+'</span>';
+    return '<span class="ax-link ax-link-cli" data-ax="'+i+'">'+nom+'</span>';
   }
   function axBindLinks(){
-    document.querySelectorAll('[data-ax]').forEach(function(el){
+    document.querySelectorAll('#ax-content [data-ax]').forEach(function(el){
       el.addEventListener('click',function(){
         var d=_axLinks[parseInt(el.getAttribute('data-ax'))];
         if(!d)return;
@@ -5994,9 +6017,90 @@ function renderAxes() {
     return {type,titre,badge,valeur,detail,action};
   }
 
+  // ══════════════════════════════════════════
+  // AGRÉGATION DES DONNÉES
+  // ══════════════════════════════════════════
+
+  // Par consultant
+  const cmap={};
+  yd.forEach(d=>d.results.filter(r=>r.type==='matched').forEach(r=>{
+    if(!cmap[r.nom])cmap[r.nom]={
+      nom:r.nom, commercial:r.commercial||'', client:r.client||'',
+      metier:r.metier||'', poste:r.poste||'', mois:{}
+    };
+    cmap[r.nom].mois[d.month]={
+      mp:r.margePct, marge:r.margeEur, facture:r.facture,
+      cout:r.coutTotal, status:r.status, tjm:r.tjm||0
+    };
+    if(r.commercial) cmap[r.nom].commercial = r.commercial;
+    if(r.client)     cmap[r.nom].client     = r.client;
+  }));
+
+  // Stats par consultant
+  const cStats = Object.values(cmap).map(c=>{
+    const moisData = months.map(m=>c.mois[m]).filter(Boolean);
+    const actifs   = moisData.filter(m=>m.facture>0);
+    const pcts     = actifs.map(m=>m.mp).filter(v=>v!==null&&v!==undefined);
+    const margeSum = actifs.reduce((s,m)=>s+(m.marge||0),0);
+    const caSum    = actifs.reduce((s,m)=>s+(m.facture||0),0);
+    const coutSum  = actifs.reduce((s,m)=>s+(m.cout||0),0);
+    const tjms     = actifs.map(m=>m.tjm).filter(v=>v>0);
+    const tjmMoy   = tjms.length?tjms.reduce((s,v)=>s+v,0)/tjms.length:0;
+    const tjmTrend = linReg(tjms);
+    const moy      = caSum>0?margeSum/caSum*100:null;
+    const trend    = linReg(pcts);
+    return Object.assign({}, c, {
+      moy, trend, pcts, margeSum, caSum, coutSum, tjmMoy, tjmTrend,
+      nMoisActifs:actifs.length,
+      lastStatus:actifs.length?actifs[actifs.length-1].status:null
+    });
+  }).filter(c=>c.nMoisActifs>0);
+
+  // Stats par commercial
+  const commMap={};
+  cStats.forEach(c=>{
+    const com=c.commercial||'Non assigné';
+    if(!commMap[com])commMap[com]={nom:com,consultants:[],caSum:0,margeSum:0,nAlerte:0};
+    commMap[com].consultants.push(c);
+    commMap[com].caSum    += c.caSum;
+    commMap[com].margeSum += c.margeSum;
+    if(c.lastStatus==='alerte') commMap[com].nAlerte++;
+  });
+  const commStats = Object.values(commMap).map(cm=>{
+    cm.margePct = cm.caSum>0?(cm.margeSum/cm.caSum*100):0;
+    cm.pctAlerte= cm.consultants.length>0?(cm.nAlerte/cm.consultants.length*100):0;
+    return cm;
+  }).filter(cm=>cm.caSum>0).sort((a,b)=>b.caSum-a.caSum);
+
+  // Stats par client
+  const cliMap={};
+  yd.forEach(d=>d.results.filter(r=>r.type==='matched'&&r.client).forEach(r=>{
+    const cl=r.client.trim(); if(!cl)return;
+    if(!cliMap[cl])cliMap[cl]={nom:cl,ca:0,marge:0,portesSet:new Set(),moisSet:new Set()};
+    cliMap[cl].ca    += r.facture||0;
+    cliMap[cl].marge += r.margeEur||0;
+    cliMap[cl].portesSet.add(r.nom);
+    cliMap[cl].moisSet.add(d.month);
+  }));
+  const cliStats = Object.values(cliMap).map(cl=>({
+    nom:cl.nom, ca:cl.ca, marge:cl.marge,
+    nPortes:cl.portesSet.size, nMois:cl.moisSet.size,
+    margePct: cl.ca>0?(cl.marge/cl.ca*100):0
+  })).filter(cl=>cl.ca>0);
+
+  // Totaux
+  const totCA    = cStats.reduce((s,c)=>s+c.caSum,0);
+  const totMarge = cStats.reduce((s,c)=>s+c.margeSum,0);
+  const moyMp    = totCA>0?totMarge/totCA*100:0;
+
+  // ══════════════════════════════════════════
+  // ANALYSES
+  // ══════════════════════════════════════════
+  const alertes=[], vigilance=[], positifs=[], recommandations=[];
+
   // ── ALERTES PRIORITAIRES ──
 
-  // 1. Consultants en perte absolue significative (top 8 par perte €)
+  // 1. Consultants en perte absolue
   const enPerte = cStats.filter(c=>c.margeSum<0).sort((a,b)=>a.margeSum-b.margeSum);
   if(enPerte.length){
     const top = enPerte.slice(0,8);
@@ -6020,19 +6124,19 @@ function renderAxes() {
     ));
   }
 
-  // 3. Commerciaux avec >40% de portefeuille en alerte
+  // 3. Commerciaux à risque
   const commSousPerf = commStats.filter(c=>c.pctAlerte>=40&&c.consultants.length>=5);
   if(commSousPerf.length){
     alertes.push(card('urgent','Portefeuilles commerciaux à risque','Commercial',
       commSousPerf.length+' commercial'+(commSousPerf.length>1?'s':''),
-      commSousPerf.map(c=>'<span class="ax-name">'+c.nom+'</span> : '+Math.round(c.pctAlerte)+'% en alerte ('+c.nAlerte+'/'+c.consultants.length+')').join('<br>'),
+      commSousPerf.map(c=>'<b>'+c.nom+'</b> : '+Math.round(c.pctAlerte)+'% en alerte ('+c.nAlerte+'/'+c.consultants.length+')').join('<br>'),
       'Faire un point individuel sur les dossiers en difficulté'
     ));
   }
 
   // ── POINTS DE VIGILANCE ──
 
-  // 4. Consultants >6 mois actifs avec marge structurellement <4%
+  // 4. Marge structurellement faible
   const structFaible = cStats.filter(c=>c.nMoisActifs>=6&&c.moy!==null&&c.moy<4&&c.moy>=0)
     .sort((a,b)=>a.moy-b.moy).slice(0,10);
   if(structFaible.length){
@@ -6044,10 +6148,10 @@ function renderAxes() {
     ));
   }
 
-  // 5. TJM stagnant alors que les coûts augmentent
+  // 5. TJM stagnant + coûts en hausse
   const tjmStagnant = cStats.filter(c=>{
-    const tjms = months.map(m=>c.mois[m]?.tjm).filter(v=>v>0);
-    const couts= months.map(m=>c.mois[m]?.cout).filter(v=>v>0);
+    const tjms = months.map(m=>c.mois[m]&&c.mois[m].tjm).filter(v=>v>0);
+    const couts= months.map(m=>c.mois[m]&&c.mois[m].cout).filter(v=>v>0);
     return tjms.length>=3 && Math.abs(linReg(tjms))<5 && linReg(couts)>50 && c.moy!==null && c.moy<6;
   }).slice(0,8);
   if(tjmStagnant.length){
@@ -6058,40 +6162,40 @@ function renderAxes() {
     ));
   }
 
-  // 6. Clients mono-consultant (risque de dépendance)
+  // 6. Clients mono-consultant
   const cliMono = cliStats.filter(c=>c.nPortes===1&&c.nMois>=3&&c.ca>20000)
     .sort((a,b)=>b.ca-a.ca).slice(0,8);
   if(cliMono.length){
     vigilance.push(card('warning','Clients mono-consultant','Risque',
       cliMono.length+' client'+(cliMono.length>1?'s':''),
       cliMono.map(c=>lkCli(c.nom)+' '+fmt(c.ca)+'€ CA · 1 seul porté').join('<br>'),
-      'Proposer un 2ème profil pour sécuriser la relation client'
+      'Proposer un 2ème profil pour sécuriser la relation'
     ));
   }
 
-  // 7. BP zéro (coût sans facturation)
+  // 7. BP zéro
   const totBP = yd.reduce((s,d)=>s+d.results.filter(r=>r.type==='bp_zero').length,0);
   if(totBP>10){
     vigilance.push(card('warning','Coûts sans facturation','BP zéro',
       totBP+' occurrences',
       'Des consultants ont un coût enregistré sans facturation associée.',
-      'Vérifier si ce sont des absences, congés ou erreurs de fichier'
+      'Vérifier si ce sont des absences, congés ou erreurs'
     ));
   }
 
   // ── POINTS POSITIFS ──
 
-  // 8. Top commerciaux par marge générée
+  // 8. Top commerciaux par marge
   const topComm = commStats.filter(c=>c.margeSum>0).sort((a,b)=>b.margeSum-a.margeSum).slice(0,3);
   if(topComm.length){
     positifs.push(card('ok','Top commerciaux par marge','Performance',
       topComm[0].nom,
       topComm.map((c,i)=>['🥇','🥈','🥉'][i]+' <b>'+c.nom+'</b> '+fmt(c.margeSum)+'€ marge ('+c.margePct.toFixed(1)+'% · '+c.consultants.length+' portés)').join('<br>'),
-      'Analyser les pratiques de ces commerciaux pour les reproduire'
+      'Analyser leurs pratiques pour les reproduire'
     ));
   }
 
-  // 9. Secteurs les plus rentables
+  // 9. Secteurs rentables
   const sectData={};
   yd.forEach(d=>d.results.filter(r=>r.type==='matched').forEach(r=>{
     const s=(r._secteur||'IT'); if(!sectData[s])sectData[s]={ca:0,marge:0};
@@ -6103,23 +6207,23 @@ function renderAxes() {
   if(topSect.length){
     positifs.push(card('ok','Secteurs les plus rentables','Secteur',
       topSect[0].s+' '+topSect[0].pct.toFixed(1)+'%',
-      topSect.map(d=>'<span class="ax-name">'+d.s+'</span> '+d.pct.toFixed(1)+'% marge · '+fmt(d.ca)+'€ CA').join('<br>'),
+      topSect.map(d=>'<b>'+d.s+'</b> '+d.pct.toFixed(1)+'% marge · '+fmt(d.ca)+'€ CA').join('<br>'),
       'Prioriser le recrutement dans ces secteurs'
     ));
   }
 
-  // 10. Consultants avec TJM ET marge en hausse = profil idéal
+  // 10. Profils idéaux
   const profitables = cStats.filter(c=>c.nMoisActifs>=3&&c.moy>=6&&c.trend>0.3&&c.tjmTrend>=0)
     .sort((a,b)=>b.margeSum-a.margeSum).slice(0,6);
   if(profitables.length){
     positifs.push(card('ok','Profils les plus rentables','Idéal',
       profitables.length+' consultant'+(profitables.length>1?'s':''),
       profitables.map(c=>lkCons(c.nom)+' '+fmtPct(c.moy)+' · TJM '+Math.round(c.tjmMoy)+'€ · '+fmt(c.margeSum)+'€').join('<br>'),
-      'Ces profils sont le modèle à dupliquer commercialement'
+      'Modèle à dupliquer commercialement'
     ));
   }
 
-  // 11. Clients en forte croissance de portés
+  // 11. Clients à développer
   const cliCroiss = cliStats.filter(c=>c.nMois>=2&&c.nPortes>=3&&c.margePct>4)
     .sort((a,b)=>b.nPortes-a.nPortes).slice(0,5);
   if(cliCroiss.length){
@@ -6140,15 +6244,15 @@ function renderAxes() {
       recommandations.push(card('info','Commerciaux sous la moyenne équipe','Benchmark',
         sousPerf.length+' commercial'+(sousPerf.length>1?'s':''),
         'Moyenne équipe : '+moyCommMp.toFixed(1)+'%<br>'+
-        sousPerf.map(c=>'<span class="ax-name">'+c.nom+'</span> '+c.margePct.toFixed(1)+'% ('+c.consultants.length+' portés)').join('<br>'),
+        sousPerf.map(c=>'<b>'+c.nom+'</b> '+c.margePct.toFixed(1)+'% ('+c.consultants.length+' portés)').join('<br>'),
         'Accompagnement sur la négociation tarifaire'
       ));
     }
   }
 
-  // 13. Consultants >12 mois sans revalorisation TJM
+  // 13. Sans revalorisation TJM
   const sansTjmRevalo = cStats.filter(c=>{
-    const tjms = months.map(m=>c.mois[m]?.tjm).filter(v=>v>0);
+    const tjms = months.map(m=>c.mois[m]&&c.mois[m].tjm).filter(v=>v>0);
     return c.nMoisActifs>=12 && tjms.length>=3 && linReg(tjms)<5 && (c.moy||0)<7;
   }).sort((a,b)=>b.nMoisActifs-a.nMoisActifs).slice(0,8);
   if(sansTjmRevalo.length){
@@ -6161,11 +6265,12 @@ function renderAxes() {
 
   // 14. Concentration risque par commercial
   commStats.forEach(cm=>{
-    const top1 = cm.consultants.sort((a,b)=>b.caSum-a.caSum)[0];
+    if(cm.consultants.length<2) return;
+    const top1 = cm.consultants.slice().sort((a,b)=>b.caSum-a.caSum)[0];
     if(top1 && cm.caSum>0 && top1.caSum/cm.caSum>0.35){
       recommandations.push(card('info','Concentration portefeuille','Risque '+cm.nom,
         Math.round(top1.caSum/cm.caSum*100)+'% sur 1 consultant',
-        '<span class="ax-name">'+cm.nom+'</span> : '+Math.round(top1.caSum/cm.caSum*100)+'% du CA porté par <span class="ax-name">'+top1.nom+'</span> ('+fmt(top1.caSum)+'€)',
+        '<b>'+cm.nom+'</b> : '+Math.round(top1.caSum/cm.caSum*100)+'% du CA porté par '+lkCons(top1.nom)+' ('+fmt(top1.caSum)+'€)',
         'Diversifier le portefeuille de '+cm.nom
       ));
     }
@@ -6176,32 +6281,29 @@ function renderAxes() {
     const el = document.getElementById(containerId);
     if(!el) return;
     if(!cards.length){
-      el.innerHTML = '<p style="color:var(--text3);font-size:13px;padding:12px 0">Aucun élément détecté.</p>';
+      el.innerHTML = '<p style="color:var(--text2);font-size:13px;padding:12px 0">Aucun élément détecté.</p>';
       return;
     }
-    const typeColors = {urgent:'#DC2626',warning:'#D97706',ok:'#0E9F6E',info:'#2563EB'};
-    const typeBg    = {urgent:'#FEF2F2',warning:'#FFFBEB',ok:'#ECFDF5',info:'#EFF6FF'};
-    const typeBord  = {urgent:'#FCA5A5',warning:'#FCD34D',ok:'#6EE7B7',info:'#93C5FD'};
-    el.innerHTML = '<div class="ax-grid">'+cards.map(c=>`
-      <div class="ax-card" style="border-color:${typeBord[c.type]};background:${typeBg[c.type]}">
-        <div class="ax-card-header">
-          <span class="ax-card-title">${c.titre}</span>
-          <span class="ax-badge" style="background:${typeColors[c.type]}22;color:${typeColors[c.type]}">${c.badge}</span>
-        </div>
-        <div class="ax-card-val" style="color:${typeColors[c.type]}">${c.valeur}</div>
-        <div class="ax-card-detail">${c.detail}</div>
-        ${c.action?`<div class="ax-card-action">→ ${c.action}</div>`:''}
-      </div>`).join('')+'</div>';
+    const tcol = {urgent:'#DC2626',warning:'#D97706',ok:'#0E9F6E',info:'#2563EB'};
+    const tbg  = {urgent:'#FEF2F2',warning:'#FFFBEB',ok:'#ECFDF5',info:'#EFF6FF'};
+    const tbd  = {urgent:'#FCA5A5',warning:'#FCD34D',ok:'#6EE7B7',info:'#93C5FD'};
+    el.innerHTML = '<div class="ax-grid">'+cards.map(c=>
+      '<div class="ax-card" style="border-color:'+tbd[c.type]+';background:'+tbg[c.type]+'">'+
+        '<div class="ax-card-header"><span class="ax-card-title">'+c.titre+'</span>'+
+        '<span class="ax-badge" style="background:'+tcol[c.type]+'22;color:'+tcol[c.type]+'">'+c.badge+'</span></div>'+
+        '<div class="ax-card-val" style="color:'+tcol[c.type]+'">'+c.valeur+'</div>'+
+        '<div class="ax-card-detail">'+c.detail+'</div>'+
+        (c.action?'<div class="ax-card-action">→ '+c.action+'</div>':'')+
+      '</div>'
+    ).join('')+'</div>';
   }
 
-  _axLinks=[];
   renderCards(alertes,       'ax-alertes');
   renderCards(vigilance,     'ax-vigilance');
   renderCards(positifs,      'ax-positifs');
   renderCards(recommandations,'ax-recommandations');
   setTimeout(axBindLinks, 50);
 }
-
 
 function clTab(name, btn) {
   document.querySelectorAll('.cl-section').forEach(s => s.classList.remove('active'));
@@ -6685,14 +6787,188 @@ function renderClient() {
 // ======== DASHBOARD PILOTAGE ========
 let _pilCharts={};
 
+
+// ── Vue globale pilotage ──
+function buildDashboardGlobal(h) {
+  const pil_normal = document.querySelector('#tab-pilotage .pil-params');
+  const pil_global = document.getElementById('pil-global');
+  const pil_kpis   = document.getElementById('pil-kpis');
+  const pil_charts_wrap = document.querySelector('#tab-pilotage > div > div:nth-child(4)'); // charts area
+
+  if(!pil_global) return;
+
+  // Montrer/cacher selon le mode
+  const allSections = document.querySelectorAll('#tab-pilotage .pil-card, #tab-pilotage canvas:not(#pil-ch-global-ca):not(#pil-ch-global-marge):not(#pil-ch-global-portes):not(#pil-ch-global-statuts), #pil-proj, #pil-decro-count, #pil-alertes');
+
+  pil_global.style.display = 'block';
+
+  const MFS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
+  // Agréger par année
+  const yearMap = {};
+  h.forEach(d => {
+    const yr = d.year;
+    if(!yearMap[yr]) yearMap[yr] = {ca:0, marge:0, portesSet:new Set(), ok:0, insuf:0, alerte:0, nMois:0};
+    const ym = yearMap[yr];
+    ym.nMois++;
+    d.results.filter(r=>r.type==='matched'&&r.facture>0).forEach(r => {
+      ym.ca    += r.facture||0;
+      ym.marge += r.margeEur||0;
+      ym.portesSet.add(r.nom);
+      if(r.status==='ok'||r.status==='superperf') ym.ok++;
+      else if(r.status==='insuffisant') ym.insuf++;
+      else if(r.status==='alerte') ym.alerte++;
+    });
+  });
+
+  const years = Object.keys(yearMap).sort();
+  if(!years.length) return;
+
+  const data = years.map(yr => {
+    const ym = yearMap[yr];
+    return {
+      yr,
+      ca: ym.ca,
+      marge: ym.marge,
+      margePct: ym.ca>0 ? ym.marge/ym.ca*100 : 0,
+      portes: ym.portesSet.size,
+      ok: ym.ok, insuf: ym.insuf, alerte: ym.alerte,
+      nMois: ym.nMois
+    };
+  });
+
+  const fmt = n => Math.round(n).toLocaleString('fr-FR');
+  const totalCA    = data.reduce((s,d)=>s+d.ca, 0);
+  const totalMarge = data.reduce((s,d)=>s+d.marge, 0);
+  const avgMarge   = totalCA > 0 ? totalMarge/totalCA*100 : 0;
+  const maxPortes  = Math.max(...data.map(d=>d.portes));
+  const lastYr     = data[data.length-1];
+  const prevYr     = data.length>1 ? data[data.length-2] : null;
+  const caGrowth   = prevYr && prevYr.ca>0 ? (lastYr.ca-prevYr.ca)/prevYr.ca*100 : null;
+
+  // KPIs globaux
+  const kpisEl = document.getElementById('pil-global-kpis');
+  if(kpisEl) {
+    kpisEl.innerHTML = [
+      {lbl:'CA TOTAL', val:fmt(totalCA)+' €', sub:years.length+' années analysées', cls:''},
+      {lbl:'MARGE TOTALE', val:fmt(totalMarge)+' €', sub:avgMarge.toFixed(1)+'% marge globale', cls:avgMarge<0?'color:var(--danger)':avgMarge<4?'color:var(--warn)':'color:var(--ok)'},
+      {lbl:'PORTÉS MAX', val:maxPortes, sub:'consultants distincts ('+lastYr.yr+')', cls:'color:var(--brand)'},
+      {lbl:'CROISSANCE CA', val:caGrowth!==null?(caGrowth>0?'+':'')+caGrowth.toFixed(1)+'%':'—', sub:prevYr?prevYr.yr+' → '+lastYr.yr:'', cls:caGrowth===null?'':caGrowth>0?'color:var(--ok)':'color:var(--danger)'}
+    ].map(k=>'<div class="pil-kpi"><div class="pil-kpi-lbl">'+k.lbl+'</div><div class="pil-kpi-val" style="'+k.cls+'">'+k.val+'</div><div class="pil-kpi-sub">'+k.sub+'</div></div>').join('');
+  }
+
+  // Chart.js colors
+  const COLORS = ['#7343EE','#2563EB','#0E9F6E','#D97706','#DC2626','#8B5CF6'];
+
+  function mkPilChart(id, type, labels, datasets, opts) {
+    if(window._pilGlobalCharts && window._pilGlobalCharts[id]) {
+      try { window._pilGlobalCharts[id].destroy(); } catch(e) {}
+    }
+    if(!window._pilGlobalCharts) window._pilGlobalCharts = {};
+    const el = document.getElementById(id);
+    if(!el) return;
+    const dark = matchMedia('(prefers-color-scheme:dark)').matches;
+    const gc = dark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.06)';
+    const tc = dark?'rgba(255,255,255,0.55)':'rgba(0,0,0,0.45)';
+    window._pilGlobalCharts[id] = new Chart(el, {
+      type, data:{labels, datasets},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:datasets.length>1, labels:{color:tc,font:{size:11}}}, tooltip:{mode:'index'}},
+        scales: type==='bar'||type==='line' ? {
+          x:{grid:{color:gc},ticks:{color:tc}},
+          y:{grid:{color:gc},ticks:{color:tc, callback:v=>opts&&opts.pct?v.toFixed(1)+'%':Math.round(v/1000)+'k'}}
+        } : {},
+        ...(opts||{})
+      }
+    });
+  }
+
+  // Graphique CA annuel
+  mkPilChart('pil-ch-global-ca','bar', years,
+    [{label:'CA facturé', data:data.map(d=>d.ca), backgroundColor:COLORS[0]+'CC', borderColor:COLORS[0], borderWidth:2, borderRadius:4}],
+    {pct:false}
+  );
+
+  // Graphique marge % annuelle
+  mkPilChart('pil-ch-global-marge','line', years,
+    [{label:'Marge %', data:data.map(d=>d.margePct), borderColor:COLORS[2], backgroundColor:COLORS[2]+'22',
+      tension:0.35, fill:true, pointRadius:5, pointBackgroundColor:COLORS[2]}],
+    {pct:true}
+  );
+
+  // Graphique portés actifs
+  mkPilChart('pil-ch-global-portes','bar', years,
+    [{label:'Portés distincts', data:data.map(d=>d.portes), backgroundColor:COLORS[1]+'CC', borderColor:COLORS[1], borderWidth:2, borderRadius:4}],
+    {pct:false, scales:{x:{},y:{ticks:{callback:v=>v}}}}
+  );
+
+  // Graphique statuts empilés
+  mkPilChart('pil-ch-global-statuts','bar', years,
+    [
+      {label:'OK / Superperf', data:data.map(d=>d.ok), backgroundColor:'#0E9F6E88', borderColor:'#0E9F6E', borderWidth:1, borderRadius:2},
+      {label:'Insuffisant',    data:data.map(d=>d.insuf), backgroundColor:'#D9770688', borderColor:'#D97706', borderWidth:1, borderRadius:2},
+      {label:'Alerte',         data:data.map(d=>d.alerte), backgroundColor:'#DC262688', borderColor:'#DC2626', borderWidth:1, borderRadius:2}
+    ],
+    {pct:false, extra:{scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>v}}}}}
+  );
+
+  // Tableau récapitulatif
+  let tbl = '<div style="margin-top:16px"><table class="tbl" style="background:var(--surface);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-xs)">';
+  tbl += '<thead><tr><th>Année</th><th style="text-align:right">CA</th><th style="text-align:right">Marge €</th><th style="text-align:right">Marge %</th><th style="text-align:right">Portés</th><th style="text-align:right">Mois</th><th style="text-align:right">OK</th><th style="text-align:right">Alerte</th></tr></thead><tbody>';
+  data.forEach((d,i) => {
+    const prevCA = i>0?data[i-1].ca:null;
+    const growth = prevCA&&prevCA>0 ? ((d.ca-prevCA)/prevCA*100).toFixed(1) : null;
+    const mpCls  = d.margePct<0?'danger':d.margePct<4?'warn':'ok';
+    tbl += '<tr>';
+    tbl += '<td><b>'+d.yr+'</b>'+(growth!==null?' <span style="font-size:10px;color:'+(parseFloat(growth)>=0?'var(--ok)':'var(--danger)')+'">('+(parseFloat(growth)>=0?'+':'')+growth+'%)</span>':'')+'</td>';
+    tbl += '<td class="mono" style="text-align:right;font-weight:600">'+fmt(d.ca)+' €</td>';
+    tbl += '<td class="mono" style="text-align:right;color:var(--'+mpCls+')">'+fmt(d.marge)+' €</td>';
+    tbl += '<td class="mono" style="text-align:right;font-weight:700;color:var(--'+mpCls+')">'+d.margePct.toFixed(1)+'%</td>';
+    tbl += '<td class="mono" style="text-align:right;color:var(--brand);font-weight:700">'+d.portes+'</td>';
+    tbl += '<td class="mono" style="text-align:right;color:var(--muted)">'+d.nMois+'</td>';
+    tbl += '<td class="mono" style="text-align:right;color:var(--ok)">'+d.ok+'</td>';
+    tbl += '<td class="mono" style="text-align:right;color:var(--danger)">'+d.alerte+'</td>';
+    tbl += '</tr>';
+  });
+  tbl += '</tbody></table></div>';
+
+  const globalEl = document.getElementById('pil-global');
+  // Mettre le tableau à la fin du div global si pas déjà là
+  if(globalEl && !globalEl.querySelector('.pil-global-tbl')) {
+    const tblDiv = document.createElement('div');
+    tblDiv.className = 'pil-global-tbl';
+    tblDiv.innerHTML = tbl;
+    globalEl.appendChild(tblDiv);
+  } else if(globalEl) {
+    const existing = globalEl.querySelector('.pil-global-tbl');
+    if(existing) existing.innerHTML = tbl;
+  }
+}
+
 function buildDashboard(){
   const year = document.getElementById('pil-year').value;
+
+  let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+
+  // Mode vue globale
+  const globalEl = document.getElementById('pil-global');
+  const normalSections = document.querySelectorAll('#pil-kpis, #pil-proj, #tab-pilotage .pil-card:not(.pil-params)');
+  if(year === 'all') {
+    if(globalEl) globalEl.style.display = 'block';
+    normalSections.forEach(el=>{ if(el) el.style.display='none'; });
+    document.getElementById('pil-subtitle').textContent = 'Vue globale · '+h.length+' mois · '+(h.length?[...new Set(h.map(d=>d.year))].sort().join(', '):'');
+    buildDashboardGlobal(h);
+    return;
+  }
+  if(globalEl) globalEl.style.display = 'none';
+  normalSections.forEach(el=>{ if(el) el.style.display=''; });
+
   const objCA  = parseFloat(document.getElementById('pil-obj-ca').value)||0;
   const objM   = parseFloat(document.getElementById('pil-obj-m').value)||0;
   const seuil  = parseFloat(document.getElementById('pil-seuil').value)||4;
   const nMois  = parseInt(document.getElementById('pil-nmois').value)||2;
 
-  let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
   const yd = h.filter(d=>d.year===year).sort((a,b)=>a.month.localeCompare(b.month));
   const MFS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 
@@ -7004,6 +7280,3 @@ function pilDrawCharts(monthly, months, objM, entrants, sortants, cmap, MFS){
     </div>
   </div>
 </div>
-
-
->
