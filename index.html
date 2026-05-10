@@ -298,7 +298,12 @@ select {
 .ax-name { font-weight:600; color:var(--text); }
 .ax-neg  { color:var(--danger); font-weight:700; font-family:var(--mono); }
 .ax-pos  { color:var(--ok); font-weight:700; font-family:var(--mono); }
-.ax-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; }
+.ax-grid { display:flex; flex-direction:row; gap:12px; overflow-x:auto; padding-bottom:8px; scroll-behavior:smooth; }
+.ax-grid::-webkit-scrollbar { height:8px; }
+.ax-grid::-webkit-scrollbar-track { background:transparent; }
+.ax-grid::-webkit-scrollbar-thumb { background:rgba(0,0,0,.15); border-radius:4px; }
+.ax-grid::-webkit-scrollbar-thumb:hover { background:rgba(0,0,0,.3); }
+.ax-grid > .ax-card { flex:0 0 320px; min-width:320px; max-width:320px; }
 
 
 .ax-link { color:var(--brand); font-weight:600; cursor:pointer; border-bottom:1px dotted var(--brand); }
