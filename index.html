@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Analyseur Paie — Seven Portage v4</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
@@ -1689,13 +1690,127 @@ select {
 
 <script>
 const STORAGE_KEY = 'seven_portage_paie_v3';
+
+// ── Couche storage compressée (LZ-string) ──
+// Toutes les écritures sur STORAGE_KEY passent par ces helpers.
+// Transparent : si LZString absent (chargement), fallback sur JSON normal.
+function spStorageSet(key, obj) {
+  try {
+    var str = JSON.stringify(obj);
+    if(typeof LZString !== 'undefined' && str.length > 10000) {
+      var compressed = LZString.compressToUTF16(str);
+      // Si la compression a vraiment réduit la taille, on l'utilise
+      if(compressed.length < str.length * 0.9) {
+        localStorage.setItem(key, 'LZ:' + compressed);
+        return true;
+      }
+    }
+    localStorage.setItem(key, str);
+    return true;
+  } catch(e) {
+    if(e.name === 'QuotaExceededError' || e.code === 22) {
+      // Réessayer en forçant la compression
+      try {
+        if(typeof LZString !== 'undefined') {
+          var str2 = JSON.stringify(obj);
+          var compressed2 = LZString.compressToUTF16(str2);
+          localStorage.setItem(key, 'LZ:' + compressed2);
+          console.log('[STORAGE] Compression forcée: '+Math.round(str2.length/1024)+'KB → '+Math.round(compressed2.length/1024)+'KB');
+          return true;
+        }
+      } catch(e2) {
+        alert('⚠ Espace de stockage saturé même après compression. Exporte tes données (bouton Export) et supprime les anciens mois.');
+        return false;
+      }
+    }
+    throw e;
+  }
+}
+
+function spStorageGet(key) {
+  var raw = localStorage.getItem(key);
+  if(raw === null) return null;
+  if(raw.indexOf('LZ:') === 0) {
+    if(typeof LZString === 'undefined') {
+      console.error('[STORAGE] LZString manquant pour décompresser '+key);
+      return null;
+    }
+    try {
+      var decompressed = LZString.decompressFromUTF16(raw.slice(3));
+      return JSON.parse(decompressed);
+    } catch(e) {
+      console.error('[STORAGE] Erreur décompression '+key+':', e);
+      return null;
+    }
+  }
+  try { return JSON.parse(raw); } catch(e) { return raw; }
+}
+
+// Migration silencieuse : compresser les données existantes
+(function migrateToCompressed(){
+  if(localStorage.getItem('migrate_lz_v1') === 'done') return;
+  if(typeof LZString === 'undefined') { setTimeout(migrateToCompressed, 500); return; }
+  try {
+    var KEYS_TO_COMPRESS = [STORAGE_KEY, 'ref_overrides_v1', 'seven_portage_corrections_v1', 'seven_portage_taches_v1'];
+    var totalBefore = 0, totalAfter = 0;
+    KEYS_TO_COMPRESS.forEach(function(k) {
+      var raw = localStorage.getItem(k);
+      if(!raw || raw.indexOf('LZ:') === 0) return;
+      try {
+        var obj = JSON.parse(raw);
+        var str = JSON.stringify(obj);
+        var compressed = LZString.compressToUTF16(str);
+        if(compressed.length < str.length * 0.9) {
+          localStorage.setItem(k, 'LZ:' + compressed);
+          totalBefore += str.length;
+          totalAfter  += compressed.length;
+        }
+      } catch(e) {}
+    });
+    localStorage.setItem('migrate_lz_v1', 'done');
+    if(totalBefore > 0) {
+      console.log('[STORAGE] Compression: '+Math.round(totalBefore/1024)+'KB → '+Math.round(totalAfter/1024)+'KB ('+Math.round((1-totalAfter/totalBefore)*100)+'% économisés)');
+    }
+  } catch(e) {
+    console.error('[STORAGE] Erreur migration:', e);
+  }
+})();
+
 const CLEANUP_VERSION = 'cleanup_chargesPct_v1';
+
+// Nettoyage silencieux one-shot pour libérer le quota localStorage
+(function cleanupStorageQuota(){
+  if(localStorage.getItem('cleanup_quota_v1') === 'done') return;
+  try {
+    var h = spStorageGet(STORAGE_KEY) || [];
+    if(!Array.isArray(h) || !h.length) {
+      localStorage.setItem('cleanup_quota_v1', 'done');
+      return;
+    }
+    var beforeSize = JSON.stringify(h).length;
+    h.forEach(function(moisData) {
+      if(!moisData.results) return;
+      moisData.results.forEach(function(r) {
+        // Champs lourds inutiles après le matching
+        delete r.raw; delete r._matched; delete r.idx;
+        delete r.keys; delete r.keyNP; delete r.keyPN;
+        delete r.nomRaw; delete r.prenomRaw;
+      });
+    });
+    var afterSize = JSON.stringify(h).length;
+    spStorageSet(STORAGE_KEY, h);
+    localStorage.setItem('cleanup_quota_v1', 'done');
+    console.log('[CLEANUP QUOTA] '+Math.round((beforeSize-afterSize)/1024)+' KB libérés');
+  } catch(e) {
+    console.error('[CLEANUP QUOTA] erreur:', e);
+  }
+})();
 
 // Nettoyage silencieux one-shot des chargesPct aberrants
 (function cleanupChargesPct(){
   if(localStorage.getItem(CLEANUP_VERSION) === 'done') return;
   try {
-    var h = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    var h = spStorageGet(STORAGE_KEY) || [];
     if(!Array.isArray(h) || !h.length) {
       localStorage.setItem(CLEANUP_VERSION, 'done');
       return;
@@ -1712,7 +1827,7 @@ const CLEANUP_VERSION = 'cleanup_chargesPct_v1';
       });
     });
     if(nFixed > 0 || nNulled > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(h));
+      safeSaveHistory(h);
       console.log('[CLEANUP] chargesPct: '+nFixed+' normalisés (×100), '+nNulled+' aberrants supprimés');
     }
     localStorage.setItem(CLEANUP_VERSION, 'done');
@@ -2395,7 +2510,7 @@ function odAutoSync() {
 function openFicheClient(nomClient) {
   console.log('[FICHE CLIENT] openFicheClient appelé pour:', nomClient);
   var h = [];
-  try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) { console.error('Erreur localStorage:', e); }
+  try { h = (spStorageGet(STORAGE_KEY) || []); } catch(e) { console.error('Erreur localStorage:', e); }
   console.log('[FICHE CLIENT] historique:', h.length, 'mois');
   h.sort(function(a,b){ return (a.year+a.month).localeCompare(b.year+b.month); });
   var moisMap = {};
@@ -2546,7 +2661,7 @@ function fidSwitchTab(tab, btn) {
 
 function buildFidConsData() {
   var h = [];
-  try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) {}
+  try { h = (spStorageGet(STORAGE_KEY) || []); } catch(e) {}
   // Trier les mois chronologiquement
   h.sort(function(a,b){ return (a.year+a.month).localeCompare(b.year+b.month); });
 
@@ -2633,7 +2748,7 @@ function buildFidConsData() {
 
 function buildFidCliData() {
   var h = [];
-  try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) {}
+  try { h = (spStorageGet(STORAGE_KEY) || []); } catch(e) {}
   h.sort(function(a,b){ return (a.year+a.month).localeCompare(b.year+b.month); });
 
   var map = {}; // nomClient → données
@@ -2725,7 +2840,7 @@ function fmtMoisFid(m) {
 function renderFidelite() {
   // Mettre à jour le sous-titre
   var h = [];
-  try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) {}
+  try { h = (spStorageGet(STORAGE_KEY) || []); } catch(e) {}
   var sub = document.getElementById('fid-subtitle');
   if(sub) sub.textContent = h.length + ' mois analysés · ' + (h.length?h[0].year:'—') + ' – ' + (h.length?h[h.length-1].year:'—');
 
@@ -2960,7 +3075,7 @@ function renderFideliteClients() {
 
 function openFicheConsultant(normNom) {
   var h = [];
-  try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) {}
+  try { h = (spStorageGet(STORAGE_KEY) || []); } catch(e) {}
   h.sort(function(a,b){ return (a.year+a.month).localeCompare(b.year+b.month); });
 
   // Collecter tous les mois de ce consultant
@@ -3097,7 +3212,7 @@ var SEUIL_INACTIF = 250; // coût ≤ 250€ → mois mutuelle seulement, exclu 
 
 function buildRentData() {
   var h = [];
-  try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) {}
+  try { h = (spStorageGet(STORAGE_KEY) || []); } catch(e) {}
 
   // Agréger par consultant normalisé
   var map = {}; // normNom → données agrégées
@@ -3283,7 +3398,7 @@ function renderRentabilite() {
   // Peupler le filtre année
   var yearSel = document.getElementById('rent-filter-year');
   if(yearSel && yearSel.options.length <= 1) {
-    var h2 = []; try{ h2=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }catch(e){}
+    var h2 = []; try{ h2=(spStorageGet(STORAGE_KEY) || []); }catch(e){}
     var years = [...new Set(h2.map(function(d){ return d.year; }))].sort().reverse();
     years.forEach(function(y) {
       var o = document.createElement('option'); o.value = o.textContent = y; yearSel.appendChild(o);
@@ -4061,7 +4176,7 @@ function clSetMode(mode) {
 
 // ── Récupérer les données selon le mode
 function getClientYearData() {
-  let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+  let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
   if(_clMode==='global') {
     return { yd1: h, yd2: null, year: 'Global', year2: null };
   } else {
@@ -4209,7 +4324,7 @@ let _refEditIdx = null;
 
 // Collecter tous les postes non classifiés depuis l'historique
 function getPostesAClasser() {
-  let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+  let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
   const seen = new Set();
   const result = [];
   h.forEach(d => {
@@ -5156,14 +5271,48 @@ function filterTable(f,btn) {
 }
 
 // ======== HISTORY ========
+
+// ── Helper de sauvegarde résistant au quota ──
+function safeSaveHistory(h) {
+  try {
+    spStorageSet(STORAGE_KEY, h);
+    return true;
+  } catch(e) {
+    if(e.name === 'QuotaExceededError' || e.code === 22) {
+      // Tentative 1 : Nettoyer les champs lourds (raw, _matched, idx)
+      try {
+        const cleaned = h.map(function(moisData) {
+          return Object.assign({}, moisData, {
+            results: (moisData.results||[]).map(function(r) {
+              const c = Object.assign({}, r);
+              delete c.raw; delete c._matched; delete c.idx;
+              delete c.keys; delete c.keyNP; delete c.keyPN;
+              delete c.nomRaw; delete c.prenomRaw;
+              return c;
+            })
+          });
+        });
+        spStorageSet(STORAGE_KEY, cleaned);
+        console.warn('[STORAGE] Données nettoyées pour respecter le quota');
+        return true;
+      } catch(e2) {
+        // Tentative 2 : avertir l'utilisateur
+        alert('⚠ Espace de stockage saturé. Considère exporter les anciens mois (bouton Export) puis supprimer les plus anciens depuis l\'historique.');
+        return false;
+      }
+    }
+    throw e;
+  }
+}
+
 function saveToHistory() {
   if(!currentResults) return;
-  let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+  let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
   const idx=h.findIndex(x=>x.year===currentResults.year&&x.month===currentResults.month);
   if(idx>=0){ if(!confirm('Ce mois existe déjà. Remplacer ?')) return; h[idx]=currentResults; }
   else h.push(currentResults);
   h.sort((a,b)=>(b.year+b.month).localeCompare(a.year+a.month));
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(h));
+  safeSaveHistory(h);
   alert('✓ Mois '+MONTHS_FR[parseInt(currentResults.month)-1]+' '+currentResults.year+' sauvegardé.');
   // Sync automatique après sauvegarde
   odAutoSync();
@@ -5173,7 +5322,7 @@ function saveToHistory() {
 if(document.readyState === "loading") { document.addEventListener("DOMContentLoaded", function(){ odInit(); tkUpdateBadge(); tkPopulateStaffSelects(); }); } else { odInit(); tkUpdateBadge(); tkPopulateStaffSelects(); }
 
 function renderHistory() {
-  let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+  let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
   if(!h.length){ document.getElementById('history-empty').style.display='block'; document.getElementById('history-content').style.display='none'; return; }
   document.getElementById('history-empty').style.display='none';
   document.getElementById('history-content').style.display='block';
@@ -5221,7 +5370,7 @@ function renderHistory() {
 }
 
 function loadHistoryMonth(i) {
-  let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+  let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
   currentResults=h[i];
   document.getElementById('header-period').textContent=MONTHS_FR[parseInt(currentResults.month)-1]+' '+currentResults.year;
   renderAnalysis();
@@ -5229,11 +5378,11 @@ function loadHistoryMonth(i) {
 }
 
 function deleteHistoryMonth(i) {
-  let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+  let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
   const d=h[i];
   if(!confirm(`Supprimer ${MONTHS_FR[parseInt(d.month)-1]} ${d.year} de l'historique ?`)) return;
   h.splice(i,1);
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(h));
+  safeSaveHistory(h);
   renderHistory();
 }
 
@@ -5339,7 +5488,7 @@ function renderSuivi() {
   const activeFilter = window._suiviFilter || 'all';
   const isGlissant = activeFilter === 'glissant6' || activeFilter === 'glissant12';
 
-  let h = []; try { h = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch(e) {}
+  let h = []; try { h = (spStorageGet(STORAGE_KEY) || []); } catch(e) {}
   h = h.slice().sort((a,b) => (b.year+b.month).localeCompare(a.year+a.month));
 
   let yearData, year;
@@ -5595,7 +5744,7 @@ function setSuiviFilter(filter, btn) {
 
 function exportSuiviCSV() {
   const year = document.getElementById('suivi-year').value;
-  let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+  let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
   const yearData=h.filter(d=>d.year===year).sort((a,b)=>a.month.localeCompare(b.month));
   if(!yearData.length){alert('Aucune donnée pour '+year);return;}
 
@@ -5637,7 +5786,7 @@ function exportSuiviCSV() {
 // ======== EXPORT SUIVI EXCEL (via SheetJS) ========
 function exportSuiviExcel() {
   const year = document.getElementById('suivi-year').value;
-  let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+  let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
   const yearData=h.filter(d=>d.year===year).sort((a,b)=>a.month.localeCompare(b.month));
   if(!yearData.length){alert('Aucune donnée pour '+year);return;}
 
@@ -5830,7 +5979,7 @@ function updateChargesTotalDisplay() {
 
 function renderFinancier() {
   const year = document.getElementById('fin-year').value;
-  let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+  let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
   const yearData = h.filter(d=>d.year===year).sort((a,b)=>a.month.localeCompare(b.month));
   if(!yearData.length) { document.getElementById('fin-empty').style.display='block'; document.getElementById('fin-content').style.display='none'; return; }
   document.getElementById('fin-empty').style.display='none'; document.getElementById('fin-content').style.display='block';
@@ -5959,7 +6108,7 @@ function renderFinancier() {
 
 function exportFinancierExcel() {
   const year = document.getElementById('fin-year').value;
-  let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+  let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
   const yearData=h.filter(d=>d.year===year).sort((a,b)=>a.month.localeCompare(b.month));
   if(!yearData.length){alert('Aucune donnée pour '+year);return;}
   const p=loadFinParams();
@@ -6004,7 +6153,7 @@ function exportFinancierExcel() {
 // ======== AXES D'AMÉLIORATION ========
 function renderAxes() {
   const year = document.getElementById('ax-year').value;
-  let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+  let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
   const yd = h.filter(d=>d.year===year).sort((a,b)=>a.month.localeCompare(b.month));
 
   if(!yd.length){
@@ -6993,7 +7142,7 @@ function buildDashboardGlobal(h) {
 function buildDashboard(){
   const year = document.getElementById('pil-year').value;
 
-  let h=[]; try{h=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+  let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
 
   // Mode vue globale
   const globalEl = document.getElementById('pil-global');
