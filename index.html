@@ -1689,6 +1689,38 @@ select {
 
 <script>
 const STORAGE_KEY = 'seven_portage_paie_v3';
+const CLEANUP_VERSION = 'cleanup_chargesPct_v1';
+
+// Nettoyage silencieux one-shot des chargesPct aberrants
+(function cleanupChargesPct(){
+  if(localStorage.getItem(CLEANUP_VERSION) === 'done') return;
+  try {
+    var h = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    if(!Array.isArray(h) || !h.length) {
+      localStorage.setItem(CLEANUP_VERSION, 'done');
+      return;
+    }
+    var nFixed = 0, nNulled = 0;
+    h.forEach(function(moisData) {
+      if(!moisData.results) return;
+      moisData.results.forEach(function(r) {
+        if(r.chargesPct === null || r.chargesPct === undefined) return;
+        var v = r.chargesPct;
+        if(typeof v !== 'number' || isNaN(v)) { r.chargesPct = null; nNulled++; return; }
+        if(v > 0 && v < 1) { r.chargesPct = v * 100; nFixed++; }       // 0.42 → 42
+        else if(v > 200 || v < 0) { r.chargesPct = null; nNulled++; }   // aberrations
+      });
+    });
+    if(nFixed > 0 || nNulled > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(h));
+      console.log('[CLEANUP] chargesPct: '+nFixed+' normalisés (×100), '+nNulled+' aberrants supprimés');
+    }
+    localStorage.setItem(CLEANUP_VERSION, 'done');
+  } catch(e) {
+    console.error('[CLEANUP] erreur:', e);
+  }
+})();
+
 const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
 let fileData = { synth: null, crm: null, swile: null, avantages: null };
@@ -4546,7 +4578,12 @@ function goToMatching() {
     const keyNP = keys[0]||'';
     const keyPN = keys[1]||'';
     const poste   = iSPoste>=0   ? String(r[iSPoste]||'').trim()   : '';
-    const chargesPct = iSCharges>=0 ? parseAmt(r[iSCharges]) : null;
+    let chargesPct = iSCharges>=0 ? parseAmt(r[iSCharges]) : null;
+    // Normaliser : <1 = format décimal (0.42), >200 = aberration (à ignorer)
+    if(chargesPct !== null) {
+      if(chargesPct > 0 && chargesPct < 1) chargesPct = chargesPct * 100;  // 0.42 → 42
+      if(chargesPct > 200 || chargesPct < 0) chargesPct = null;             // aberrations
+    }
     synthEntries.push({nomRaw, prenomRaw, raw, cout, keys:[...new Set(keys)].filter(Boolean), keyNP, keyPN, idx, poste, chargesPct});
   });
 
@@ -6079,7 +6116,7 @@ function renderAxes() {
     cliMap[cl].ca    += r.facture||0;
     cliMap[cl].marge += r.margeEur||0;
     cliMap[cl].portesSet.add(r.nom);
-    cliMap[cl].moisSet.add(d.month);
+    cliMap[cl].moisSet.add(d.year+'-'+d.month);
   }));
   const cliStats = Object.values(cliMap).map(cl=>({
     nom:cl.nom, ca:cl.ca, marge:cl.marge,
@@ -6366,7 +6403,7 @@ function renderClient() {
         map[k].ca    += r.facture;
         map[k].marge += r.margeEur;
         map[k].nPortes.add(r.nom);
-        map[k].nMois.add(d.month);
+        map[k].nMois.add(d.year+'-'+d.month);
       });
     });
     return Object.entries(map).map(([k,v])=>({
