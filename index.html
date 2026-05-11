@@ -6395,21 +6395,27 @@ function renderClient() {
   // ── Agrégation helper ──
   function aggBy(yd, field) {
     const map = {};
+    // Dernier mois disponible
+    const lastMoisKey = yd.length ? yd[yd.length-1].year+'-'+yd[yd.length-1].month : '';
     yd.forEach(d => {
+      const moisKey = d.year+'-'+d.month;
       d.results.filter(r=>r.type==='matched'&&r.facture>0&&r[field]).forEach(r => {
         const k = r[field].trim();
         if(!k) return;
-        if(!map[k]) map[k] = {ca:0, marge:0, nPortes:new Set(), nMois:new Set()};
+        if(!map[k]) map[k] = {ca:0, marge:0, nPortes:new Set(), nMois:new Set(), nActifs:new Set()};
         map[k].ca    += r.facture;
         map[k].marge += r.margeEur;
         map[k].nPortes.add(r.nom);
-        map[k].nMois.add(d.year+'-'+d.month);
+        map[k].nMois.add(moisKey);
+        // Portés actifs = portés présents sur le DERNIER mois disponible
+        if(moisKey === lastMoisKey) map[k].nActifs.add(r.nom);
       });
     });
     return Object.entries(map).map(([k,v])=>({
       label:k, ca:v.ca, marge:v.marge,
       margePct: v.ca>0?(v.marge/v.ca)*100:0,
-      nPortes: v.nPortes.size, nMois: v.nMois.size
+      nPortes: v.nPortes.size, nMois: v.nMois.size,
+      nActifs: v.nActifs.size
     })).sort((a,b)=>b.ca-a.ca);
   }
 
@@ -6560,7 +6566,7 @@ function renderClient() {
         <td style="font-family:var(--font-mono)">${Math.round(c.ca).toLocaleString('fr-FR')} €<span style="font-size:10px;color:var(--text2);margin-left:4px">${pct}%</span></td>
         <td style="font-family:var(--font-mono)">${Math.round(c.marge).toLocaleString('fr-FR')} €</td>
         <td style="font-family:var(--font-mono);${mpC}">${c.margePct.toFixed(1)}%</td>
-        <td>${c.nPortes}</td><td>${c.nMois}</td>
+        <td>${c.nActifs||0}</td><td>${c.nPortes}</td><td>${c.nMois}</td>
         ${year2?`<td style="font-family:var(--font-mono)">${c2?Math.round(c2.ca).toLocaleString('fr-FR')+' €':'—'}</td><td>${evol||'—'}</td>`:''}
       </tr>`;
     }).join('') +
