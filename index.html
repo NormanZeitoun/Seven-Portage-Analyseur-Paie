@@ -3214,31 +3214,44 @@ function openFicheConsultant(normNom) {
   h.forEach(function(moisHist) {
     var moisKey = moisHist.year + '-' + ('0'+moisHist.month).slice(-2);
     (moisHist.results||[]).forEach(function(r) {
-      // On garde les lignes "matched" (cas normal) ET les "orphan_crm" qui sont des paies différées
-      // (CA facturé > 0 sans coût paie ce mois-là, paie reportée → marge 100%).
-      var isPaieDiff = r.type === 'orphan_crm' && (r.paieDifferee || (r.facture||0) > 0);
-      if(r.type !== 'matched' && !isPaieDiff) return;
+      // Deux cas de "paie différée" :
+      //   1. type orphan_crm avec facture > 0 (paie reportée, coût = 0)
+      //   2. type matched mais coût ≤ SEUIL_INACTIF (mutuelle seulement) avec facture > 0
+      //      → cas où la consultante est en pause mission mais facturée (régul, forfait, etc.)
+      var isOrphanDiff   = r.type === 'orphan_crm' && (r.paieDifferee || (r.facture||0) > 0);
+      var isMutuelleDiff = r.type === 'matched'    && (r.coutTotal||0) <= SEUIL_INACTIF && (r.facture||0) > 0;
+      var isPaieDiff     = isOrphanDiff || isMutuelleDiff;
+      if(r.type !== 'matched' && !isOrphanDiff) return;
       // Match si l'un des deux libellés (nom paie OU crmNom) partage les mêmes tokens triés que la cible.
       var tokNom = normTokens(r.nom||'');
       var tokCrm = normTokens(r.crmNom||'');
       if(tokNom !== targetTokens && tokCrm !== targetTokens) return;
+      // Pour les cas "paie différée" (orphan_crm OU matched mutuelle), on neutralise le coût
+      // côté affichage de la fiche pour calculer une marge à 100% du CA.
+      // Le localStorage reste intact (coût réel préservé pour les KPI mensuels globaux).
+      var caAff    = r.facture   || 0;
+      var coutAff  = isPaieDiff ? 0 : (r.coutTotal || 0);
+      var margeAff = isPaieDiff ? caAff : (r.margeEur || 0);
+      var pctAff   = isPaieDiff ? (caAff > 0 ? 100 : 0) : (r.margePct || 0);
       moisData.push({
         mois:      moisKey,
         year:      moisHist.year,
         month:     moisHist.month,
-        ca:        r.facture    || 0,
-        cout:      r.coutTotal  || 0,
-        marge:     r.margeEur   || 0,
-        margePct:  r.margePct   || 0,
+        ca:        caAff,
+        cout:      coutAff,
+        marge:     margeAff,
+        margePct:  pctAff,
+        coutReel:  r.coutTotal || 0, // pour rappel info (utile en tooltip)
         tjm:       r.tjm        || 0,
         client:    r.client     || '',
         commercial:r.commercial || '',
         metier:    r.metier     || '',
         poste:     r.poste      || '',
         status:    r.status     || '',
-        paieDifferee: !!isPaieDiff,
+        paieDifferee:        !!isPaieDiff,
+        paieDiffereeMutuelle: !!isMutuelleDiff,
         // Un mois de paie différée est actif (le consultant a bien produit du CA),
-        // même si le coût technique est à 0 → on s'appuie sur le CA pour le décider.
+        // même si le coût technique est à 0 ou ≤ seuil mutuelle → on s'appuie sur le CA pour le décider.
         actif:     (r.coutTotal||0) > SEUIL_INACTIF || isPaieDiff
       });
     });
@@ -3317,13 +3330,27 @@ function openFicheConsultant(normNom) {
   document.getElementById('fiche-mois-tbody').innerHTML = moisData.map(function(m){
     var moisLabel = MONTHS_FR[parseInt(m.month)-1]+' '+m.year;
     var mc2 = m.margePct<0?'color:var(--danger)':m.margePct<4?'color:var(--warning)':'color:var(--success)';
-    var inactifStyle = !m.actif ? 'opacity:.5;font-style:italic' : '';
-    return '<tr style="'+inactifStyle+'">'+
-      '<td style="font-weight:600;white-space:nowrap">'+moisLabel+(m.actif?'':'<span style="font-size:10px;color:var(--muted);margin-left:5px">mutuelle</span>')+'</td>'+
+    // Style "inactif" (opacité+italique) uniquement pour les vrais mois inactifs (mutuelle sans CA),
+    // pas pour les paies différées qui sont des mois actifs commercialement.
+    var inactifStyle = (!m.actif || m.paieDifferee) ? '' : '';
+    var trStyle = (!m.actif) ? 'opacity:.5;font-style:italic' : '';
+    // Tag à côté du mois : "mutuelle" si vrai inactif, "💸 Paie différée" si paie différée
+    var moisTag = '';
+    if(m.paieDifferee) {
+      var tagLabel = m.paieDiffereeMutuelle ? '💸 Paie diff. (mutuelle)' : '💸 Paie différée';
+      var tagTitle = m.paieDiffereeMutuelle ? 'Mois mutuelle (' + Math.round(m.coutReel) + ' € payés) : marge 100% du CA, coût ignoré pour la fiche' : 'Mois facturé sans paie : marge 100% du CA';
+      moisTag = '<span style="font-size:10px;color:var(--brand);background:#ECE6FF;padding:1px 6px;border-radius:6px;margin-left:6px" title="'+tagTitle+'">'+tagLabel+'</span>';
+    } else if(!m.actif) {
+      moisTag = '<span style="font-size:10px;color:var(--muted);margin-left:5px">mutuelle</span>';
+    }
+    // Affichage marge : afficher si actif (y compris paie différée)
+    var showMarge = m.actif;
+    return '<tr style="'+trStyle+'">'+
+      '<td style="font-weight:600;white-space:nowrap">'+moisLabel+moisTag+'</td>'+
       '<td style="text-align:right;font-family:var(--mono)">'+(m.ca>0?Math.round(m.ca).toLocaleString('fr-FR')+' €':'—')+'</td>'+
       '<td style="text-align:right;font-family:var(--mono)">'+(m.cout>0?Math.round(m.cout).toLocaleString('fr-FR')+' €':'—')+'</td>'+
-      '<td style="text-align:right;font-family:var(--mono);'+mc2+'">'+(m.actif?Math.round(m.marge).toLocaleString('fr-FR')+' €':'—')+'</td>'+
-      '<td style="text-align:right;font-family:var(--mono);font-weight:600;'+mc2+'">'+(m.actif?m.margePct.toFixed(1)+'%':'—')+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono);'+mc2+'">'+(showMarge?Math.round(m.marge).toLocaleString('fr-FR')+' €':'—')+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono);font-weight:600;'+mc2+'">'+(showMarge?m.margePct.toFixed(1)+'%':'—')+'</td>'+
       '<td style="text-align:right;font-family:var(--mono)">'+(m.tjm>0?Math.round(m.tjm).toLocaleString('fr-FR')+' €':'—')+'</td>'+
       '<td style="font-size:11.5px;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+( m.client||'—')+'</td>'+
       '<td>'+(m.actif&&m.status?'<span class="rent-tag" style="font-size:10px;padding:1px 6px;background:var(--brand-soft);color:var(--brand)">'+(STATUT_LABELS[m.status]||m.status)+'</span>':'')+'</td>'+
