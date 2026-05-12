@@ -3204,6 +3204,12 @@ function openFicheConsultant(normNom) {
   h.sort(function(a,b){ return (a.year+a.month).localeCompare(b.year+b.month); });
 
   // Collecter tous les mois de ce consultant
+  // Comparaison de noms tolérante à l'ordre des tokens : "CHARIAT Camille" (format paie)
+  // et "Camille CHARIAT" (format CRM) doivent être reconnus comme la même personne.
+  function normTokens(s) {
+    return norm(String(s||'')).split(/\s+/).filter(Boolean).sort().join(' ');
+  }
+  var targetTokens = normTokens(normNom);
   var moisData = [];
   h.forEach(function(moisHist) {
     var moisKey = moisHist.year + '-' + ('0'+moisHist.month).slice(-2);
@@ -3212,7 +3218,10 @@ function openFicheConsultant(normNom) {
       // (CA facturé > 0 sans coût paie ce mois-là, paie reportée → marge 100%).
       var isPaieDiff = r.type === 'orphan_crm' && (r.paieDifferee || (r.facture||0) > 0);
       if(r.type !== 'matched' && !isPaieDiff) return;
-      if(norm(r.nom||r.crmNom||'') !== normNom) return;
+      // Match si l'un des deux libellés (nom paie OU crmNom) partage les mêmes tokens triés que la cible.
+      var tokNom = normTokens(r.nom||'');
+      var tokCrm = normTokens(r.crmNom||'');
+      if(tokNom !== targetTokens && tokCrm !== targetTokens) return;
       moisData.push({
         mois:      moisKey,
         year:      moisHist.year,
@@ -3240,11 +3249,13 @@ function openFicheConsultant(normNom) {
   var nom = moisData[0] ? (moisData.find(function(m){ return m.ca > 0; }) || moisData[0]) : null;
   var displayNom = nom ? nom.nom || normNom : normNom;
 
-  // Chercher le vrai nom affiché
+  // Chercher le vrai nom affiché (comparaison tolérante à l'ordre des tokens)
   var realNom = normNom;
   h.forEach(function(moisHist) {
     (moisHist.results||[]).forEach(function(r) {
-      if(norm(r.nom||r.crmNom||'') === normNom && (r.nom||r.crmNom)) {
+      var tokNom = normTokens(r.nom||'');
+      var tokCrm = normTokens(r.crmNom||'');
+      if((tokNom === targetTokens || tokCrm === targetTokens) && (r.nom||r.crmNom)) {
         realNom = r.nom || r.crmNom || normNom;
       }
     });
