@@ -7083,12 +7083,13 @@ function renderClient() {
   // ── Agrégation helper ──
   function aggBy(yd, field) {
     const map = {};
-    // Dernier mois disponible
-    const lastMoisKey = yd.length ? yd[yd.length-1].year+'-'+yd[yd.length-1].month : '';
-    // Mois en cours (date du jour) au format AAAA-MM
-    const _now = new Date();
-    const _curMonth = ('0'+(_now.getMonth()+1)).slice(-2);
-    const currentMoisKey = _now.getFullYear()+'-'+_curMonth;
+    // Dernier mois disponible : on cherche le MAX sur (year + month) concaténés,
+    // pas juste le dernier élément du tableau (qui n'est pas garanti trié dans tous les modes).
+    let lastMoisKey = '';
+    yd.forEach(d => {
+      const k = d.year + '-' + d.month;
+      if(k > lastMoisKey) lastMoisKey = k;
+    });
     yd.forEach(d => {
       const moisKey = d.year+'-'+d.month;
       // Inclure les matched ET les paies différées (orphan_crm avec facture>0)
@@ -7101,15 +7102,13 @@ function renderClient() {
       }).forEach(r => {
         const k = r[field].trim();
         if(!k) return;
-        if(!map[k]) map[k] = {ca:0, marge:0, nPortes:new Set(), nMois:new Set(), nActifs:new Set(), nActifsCurrent:new Set()};
+        if(!map[k]) map[k] = {ca:0, marge:0, nPortes:new Set(), nMois:new Set(), nActifs:new Set()};
         map[k].ca    += r.facture;
         map[k].marge += r.margeEur;
         map[k].nPortes.add(r.nom);
         map[k].nMois.add(moisKey);
-        // Portés actifs = portés présents sur le DERNIER mois disponible (legacy)
+        // Portés actifs = portés présents sur le DERNIER mois disponible (cohérent avec onglet Fidélité)
         if(moisKey === lastMoisKey) map[k].nActifs.add(r.nom);
-        // Portés actifs MOIS EN COURS (date du jour) — pour la nouvelle colonne commerciaux
-        if(moisKey === currentMoisKey) map[k].nActifsCurrent.add(r.nom);
       });
     });
     return Object.entries(map).map(([k,v])=>({
@@ -7117,7 +7116,8 @@ function renderClient() {
       margePct: v.ca>0?(v.marge/v.ca)*100:0,
       nPortes: v.nPortes.size, nMois: v.nMois.size,
       nActifs: v.nActifs.size,
-      nActifsCurrent: v.nActifsCurrent.size
+      // Alias pour la nouvelle colonne "Portés actifs" du tableau commerciaux
+      nActifsCurrent: v.nActifs.size
     })).sort((a,b)=>b.ca-a.ca);
   }
 
