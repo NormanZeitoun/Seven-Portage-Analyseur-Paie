@@ -3353,7 +3353,7 @@ function openFicheConsultant(normNom) {
       '<td style="text-align:right;font-family:var(--mono);font-weight:600;'+mc2+'">'+(showMarge?m.margePct.toFixed(1)+'%':'—')+'</td>'+
       '<td style="text-align:right;font-family:var(--mono)">'+(m.tjm>0?Math.round(m.tjm).toLocaleString('fr-FR')+' €':'—')+'</td>'+
       '<td style="font-size:11.5px;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+( m.client||'—')+'</td>'+
-      '<td>'+(m.actif&&m.status?'<span class="rent-tag" style="font-size:10px;padding:1px 6px;background:var(--brand-soft);color:var(--brand)">'+(STATUT_LABELS[m.status]||m.status)+'</span>':'')+'</td>'+
+      '<td>'+(m.actif&&m.status&&!m.paieDifferee?'<span class="rent-tag" style="font-size:10px;padding:1px 6px;background:var(--brand-soft);color:var(--brand)">'+(STATUT_LABELS[m.status]||m.status)+'</span>':'')+'</td>'+
     '</tr>';
   }).join('');
 
@@ -3383,8 +3383,14 @@ function buildRentData() {
   var h = [];
   try { h = (spStorageGet(STORAGE_KEY) || []); } catch(e) {}
 
-  // Agréger par consultant normalisé
-  var map = {}; // normNom → données agrégées
+  // Comparaison de noms tolérante à l'ordre des tokens : "CHARIAT Camille" et
+  // "Camille CHARIAT" sont reconnus comme la même personne.
+  function normTok(s) {
+    return norm(String(s||'')).split(/\s+/).filter(Boolean).sort().join(' ');
+  }
+
+  // Agréger par consultant (clé = tokens triés du nom pour fusionner les variantes)
+  var map = {}; // clé tokens → données agrégées
 
   h.forEach(function(moisData) {
     var year  = moisData.year;
@@ -3392,14 +3398,22 @@ function buildRentData() {
     var moisKey = year + '-' + month;
 
     (moisData.results||[]).forEach(function(r) {
-      if(r.type !== 'matched') return;
+      // Deux cas de paie différée (cohérent avec la fiche consultant) :
+      //   1. orphan_crm avec facture > 0
+      //   2. matched avec coût ≤ SEUIL_INACTIF (mutuelle seulement) ET facture > 0
+      var isOrphanDiff   = r.type === 'orphan_crm' && (r.paieDifferee || (r.facture||0) > 0);
+      var isMutuelleDiff = r.type === 'matched'    && (r.coutTotal||0) <= SEUIL_INACTIF && (r.facture||0) > 0;
+      var isPaieDiff     = isOrphanDiff || isMutuelleDiff;
+      if(r.type !== 'matched' && !isOrphanDiff) return;
 
-      var normNom = norm(r.nom || r.crmNom || '');
-      if(!normNom) return;
+      // Clé d'agrégation : tokens triés (tolère NOM Prénom vs Prénom NOM)
+      var rawNom = r.nom || r.crmNom || '';
+      var key = normTok(rawNom);
+      if(!key) return;
 
-      if(!map[normNom]) {
-        map[normNom] = {
-          nom:        r.nom || r.crmNom || normNom,
+      if(!map[key]) {
+        map[key] = {
+          nom:        rawNom,
           commercial: r.commercial || '',
           client:     r.client || '',
           metier:     r.metier || '',
@@ -3410,25 +3424,32 @@ function buildRentData() {
         };
       }
 
-      var c = map[normNom];
+      var c = map[key];
+      // Garder le nom le plus complet/long comme nom canonique (utile pour affichage)
+      if(rawNom && rawNom.length > (c.nom||'').length) c.nom = rawNom;
       // Mettre à jour 1er/dernier mois
       if(moisKey < c.debut) c.debut = moisKey;
       if(moisKey > c.fin)   c.fin   = moisKey;
 
-      // Identifier si mois actif ou inactif (mutuelle seulement)
-      var coutMois = r.coutTotal || 0;
-      // Inactif = pas de CA facturé ce mois (mutuelle seulement)
-      if((r.facture||0) === 0) {
+      // Pour les paies différées : coût virtuellement à 0, marge = CA, marge% = 100
+      // (le coût mutuelle réel n'est pas compté dans cette vue consultant — cohérent fiche)
+      var caEff    = r.facture || 0;
+      var coutEff  = isPaieDiff ? 0 : (r.coutTotal || 0);
+      var margeEff = isPaieDiff ? caEff : (r.margeEur || 0);
+      var pctEff   = isPaieDiff ? (caEff > 0 ? 100 : 0) : (r.margePct || 0);
+
+      // Inactif = pas de CA facturé ET pas une paie différée (donc vraiment rien à compter)
+      if(caEff === 0 && !isPaieDiff) {
         c.moisInactifs.push(moisKey);
       } else {
         c.moisActifs.push({
           mois:      moisKey,
-          ca:        r.facture    || 0,
-          marge:     r.margeEur   || 0,
-          margePct:  r.margePct   || 0,
-          tjm:       r.tjm        || 0,
-          cout:      coutMois,
-          statut:    r.status     || ''
+          ca:        caEff,
+          marge:     margeEff,
+          margePct:  pctEff,
+          tjm:       r.tjm || 0,
+          cout:      coutEff,
+          statut:    isPaieDiff ? 'paie_differee' : (r.status || '')
         });
       }
       // Mettre à jour commercial si plus récent
