@@ -233,6 +233,7 @@ select {
 .badge-danger { background: var(--danger-bg); color: var(--danger); }
 .badge-info   { background: var(--info-bg);   color: var(--info); }
 .badge-gray   { background: #F0EDF9;          color: var(--muted); }
+.badge-brand  { background: #ECE6FF;          color: var(--brand); }
 
 /* ── HISTORY ROWS ── */
 .history-row {
@@ -3169,7 +3170,10 @@ function openFicheConsultant(normNom) {
   h.forEach(function(moisHist) {
     var moisKey = moisHist.year + '-' + ('0'+moisHist.month).slice(-2);
     (moisHist.results||[]).forEach(function(r) {
-      if(r.type !== 'matched') return;
+      // On garde les lignes "matched" (cas normal) ET les "orphan_crm" qui sont des paies différées
+      // (CA facturé > 0 sans coût paie ce mois-là, paie reportée → marge 100%).
+      var isPaieDiff = r.type === 'orphan_crm' && (r.paieDifferee || (r.facture||0) > 0);
+      if(r.type !== 'matched' && !isPaieDiff) return;
       if(norm(r.nom||r.crmNom||'') !== normNom) return;
       moisData.push({
         mois:      moisKey,
@@ -3185,7 +3189,10 @@ function openFicheConsultant(normNom) {
         metier:    r.metier     || '',
         poste:     r.poste      || '',
         status:    r.status     || '',
-        actif:     (r.coutTotal||0) > SEUIL_INACTIF
+        paieDifferee: !!isPaieDiff,
+        // Un mois de paie différée est actif (le consultant a bien produit du CA),
+        // même si le coût technique est à 0 → on s'appuie sur le CA pour le décider.
+        actif:     (r.coutTotal||0) > SEUIL_INACTIF || isPaieDiff
       });
     });
   });
@@ -4956,7 +4963,10 @@ function goToMatching() {
     }
   });
 
-  const orphanCrm = crmEntries.filter((_,i)=>!usedCrm.has(i)).map(ce=>({label:ce.display, facture:ce.facture}));
+  const orphanCrm = crmEntries.filter((_,i)=>!usedCrm.has(i)).map(ce=>({
+    label:ce.display, facture:ce.facture,
+    client:ce.client||'', commercial:ce.commercial||'', metier:ce.metier||'', tjm:ce.tjm||0
+  }));
 
   function findSwile(map, keys) {
     // 1. Recherche exacte d'abord
@@ -5215,8 +5225,15 @@ function runAnalysis() {
   });
 
   // Orphelins CRM (facturation sans salaire)
+  // → Cas "paie différée" : CA facturé > 0 sans coût paie = paiement décalé sur un mois ultérieur.
+  //   On considère la marge à 100% (le coût apparaîtra plus tard, lors du rattrapage de paie).
+  //   Les vrais cas sans facture (consultant parti, erreur, etc.) restent margePct=null.
   s.orphanCrm.forEach(o => {
-    results.push({nom:o.label,crmNom:o.label,coutPaie:0,swile:0,coutTotal:0,facture:o.facture,margeEur:o.facture,margePct:null,status:'orphan_crm',type:'orphan_crm'});
+    const isPaieDiff = (o.facture||0) > 0;
+    results.push({nom:o.label,crmNom:o.label,coutPaie:0,swile:0,coutTotal:0,facture:o.facture,
+      margeEur: o.facture, margePct: isPaieDiff ? 100 : null,
+      client: o.client||'', commercial: o.commercial||'', metier: o.metier||'', tjm: o.tjm||0,
+      status:'orphan_crm', type:'orphan_crm', paieDifferee: isPaieDiff});
   });
 
   // Personnel interne (coût visible, pas de matching attendu)
@@ -5251,7 +5268,12 @@ function renderAnalysis() {
   const nSuperperf=matched.filter(r=>r.status==='superperf').length;
   const nNoCost=matched.filter(r=>r.status==='no_cost').length;
   const nOP=d.results.filter(r=>r.type==='orphan_synth').length;
-  const nOC=d.results.filter(r=>r.type==='orphan_crm').length;
+  // orphan_crm = facturation sans coût paie. On distingue :
+  //   - paie différée (facture > 0) : cas légitime, on rémunèrera plus tard → marge 100% comptée
+  //   - vraie anomalie (facture = 0) : à investiguer
+  const nOC_diff=d.results.filter(r=>r.type==='orphan_crm' && r.paieDifferee).length;
+  const nOC_anom=d.results.filter(r=>r.type==='orphan_crm' && !r.paieDifferee).length;
+  const nOC=nOC_diff+nOC_anom;
   const nBP=d.results.filter(r=>r.type==='bp_zero').length;
   const nInt=d.results.filter(r=>r.type==='internal').length;
   const tIntCout=d.results.filter(r=>r.type==='internal').reduce((s,r)=>s+r.coutPaie,0);
@@ -5284,12 +5306,14 @@ function renderAnalysis() {
   }
 
   const bd=document.getElementById('badge-danger');
-  const total_issues=nAlerte+nOP+nOC;
+  // Les paies différées ne sont PAS des anomalies (cas métier légitime) → exclues du badge danger
+  const total_issues=nAlerte+nOP+nOC_anom;
   if(total_issues>0){ bd.style.display='inline-flex'; bd.textContent=total_issues; } else bd.style.display='none';
 
   const alerts=[];
   if(nOP) alerts.push(`<div class="alert alert-danger"><span class="alert-icon">⚠</span><span><strong>${nOP} salarié${nOP>1?'s':''} sans facturation</strong> — coût non couvert : <strong>${fmt(d.results.filter(r=>r.type==='orphan_synth').reduce((s,r)=>s+r.coutPaie,0))} €</strong></span></div>`);
-  if(nOC) alerts.push(`<div class="alert alert-warn"><span class="alert-icon">⚠</span><span><strong>${nOC} facturation${nOC>1?'s':''} sans fiche salariale</strong> — <strong>${fmt(d.results.filter(r=>r.type==='orphan_crm').reduce((s,r)=>s+r.facture,0))} €</strong></span></div>`);
+  if(nOC_anom) alerts.push(`<div class="alert alert-warn"><span class="alert-icon">⚠</span><span><strong>${nOC_anom} facturation${nOC_anom>1?'s':''} sans fiche salariale</strong> — <strong>${fmt(d.results.filter(r=>r.type==='orphan_crm'&&!r.paieDifferee).reduce((s,r)=>s+r.facture,0))} €</strong></span></div>`);
+  if(nOC_diff) alerts.push(`<div class="alert" style="background:#ECE6FF;color:var(--brand);border-left:3px solid var(--brand);padding:10px 12px;border-radius:6px;display:flex;gap:8px;align-items:flex-start"><span class="alert-icon">💸</span><span><strong>${nOC_diff} paie${nOC_diff>1?'s':''} différée${nOC_diff>1?'s':''}</strong> — facturé sans coût ce mois, paiement reporté : <strong>${fmt(d.results.filter(r=>r.type==='orphan_crm'&&r.paieDifferee).reduce((s,r)=>s+r.facture,0))} €</strong> de marge à 100%</span></div>`);
   if(nAlerte) alerts.push(`<div class="alert alert-danger"><span class="alert-icon">⚠</span><span><strong>${nAlerte} consultant${nAlerte>1?'s':''} en marge négative</strong></span></div>`);
   if(nInsuf) alerts.push(`<div class="alert alert-warn"><span class="alert-icon">⚠</span><span><strong>${nInsuf} consultant${nInsuf>1?'s':''} en marge insuffisante</strong> (0–4%)</span></div>`);
   if(nNoCost) alerts.push(`<div class="alert alert-info"><span class="alert-icon">ℹ</span><span><strong>${nNoCost} consultant${nNoCost>1?'s':''} sans coût global</strong> — marge N/A, à vérifier</span></div>`);
@@ -5320,7 +5344,10 @@ function renderTable(results, filter) {
   tbody.innerHTML=filtered.map(r=>{
     let badge, badgeClass;
     if(r.type==='orphan_synth')       { badge='Sans facturation';  badgeClass='badge-danger'; }
-    else if(r.type==='orphan_crm')    { badge='Sans salaire';       badgeClass='badge-warn'; }
+    else if(r.type==='orphan_crm')    {
+      if(r.paieDifferee) { badge='💸 Paie différée'; badgeClass='badge-brand'; }
+      else               { badge='Sans salaire';     badgeClass='badge-warn'; }
+    }
     else if(r.type==='internal')      { badge='Personnel interne';  badgeClass='badge-info'; }
     else if(r.type==='bp_zero')       { badge='BP à zéro';          badgeClass='badge-gray'; }
     else if(r.status==='alerte')      { badge='🔴 Alerte';          badgeClass='badge-danger'; }
@@ -5539,7 +5566,13 @@ function applyFactCompl() {
     if(o.cout<=120) results.push({nom:o.label,crmNom:'—',coutPaie:o.cout,swile:0,coutTotal:o.cout,facture:0,margeEur:-o.cout,margePct:null,status:'bp_zero',type:'bp_zero'});
     else            results.push({nom:o.label,crmNom:'—',coutPaie:o.cout,swile:0,coutTotal:o.cout,facture:0,margeEur:-o.cout,margePct:-100,status:'orphan_synth',type:'orphan_synth'});
   });
-  s.orphanCrm.forEach(o => results.push({nom:o.label,crmNom:o.label,coutPaie:0,swile:0,coutTotal:0,facture:o.facture,margeEur:o.facture,margePct:null,status:'orphan_crm',type:'orphan_crm'}));
+  s.orphanCrm.forEach(o => {
+    const isPaieDiff = (o.facture||0) > 0;
+    results.push({nom:o.label,crmNom:o.label,coutPaie:0,swile:0,coutTotal:0,facture:o.facture,
+      margeEur: o.facture, margePct: isPaieDiff ? 100 : null,
+      client: o.client||'', commercial: o.commercial||'', metier: o.metier||'', tjm: o.tjm||0,
+      status:'orphan_crm', type:'orphan_crm', paieDifferee: isPaieDiff});
+  });
   (s.internalEntries||[]).forEach(ie => results.push({nom:ie.raw,crmNom:'—',coutPaie:ie.cout,swile:0,coutTotal:ie.cout,facture:0,margeEur:0,margePct:null,status:'internal',type:'internal'}));
   results.sort((a,b)=>{
     const ord={orphan_synth:0,orphan_crm:1,alerte:2,insuffisant:3,no_cost:4,bp_zero:5,internal:6,ok:7,superperf:8};
