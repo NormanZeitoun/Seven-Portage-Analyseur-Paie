@@ -2467,6 +2467,9 @@ function odLoad() {
 function odPush() {
   odWithToken(function(token) {
     odSetStatus('Synchronisation…', false);
+    // S'assurer que les données locales sont migrées avant de les pousser
+    // (cas "paie différée" — voir migratePaieDifferee).
+    if(typeof migratePaieDifferee === 'function') migratePaieDifferee();
     // Lire d'abord le fichier distant pour merger
     var path = encodeURIComponent(OD_FILE_PATH);
     var base = 'https://graph.microsoft.com/v1.0' + OD_DRIVE_BASE + '/root:' + path + ':/content';
@@ -2477,6 +2480,18 @@ function odPush() {
       // Merge historique avec le distant
       if (remote && remote.data && remote.data[STORAGE_KEY]) {
         var remoteHist = Array.isArray(remote.data[STORAGE_KEY]) ? remote.data[STORAGE_KEY] : [];
+        // Migrer aussi les données distantes (au cas où un autre poste a poussé sans migration)
+        try {
+          remoteHist.forEach(function(moisData) {
+            if(!moisData || !Array.isArray(moisData.results)) return;
+            moisData.results.forEach(function(r) {
+              if(r.type === 'orphan_crm' && (r.facture||0) > 0 && r.paieDifferee !== true) {
+                r.margePct = 100; r.paieDifferee = true;
+                if(r.margeEur !== r.facture) r.margeEur = r.facture;
+              }
+            });
+          });
+        } catch(eMig) { console.warn('[odPush] migration remote :', eMig); }
         var localHist  = Array.isArray(localData.data[STORAGE_KEY]) ? localData.data[STORAGE_KEY] : [];
         var map = {};
         localHist.forEach(function(d) { map[d.year + '_' + d.month] = d; });
@@ -2492,6 +2507,9 @@ function odPush() {
     }).then(function(r) {
       if (r && r.ok) {
         odSetStatus('✓ Sync OK — ' + new Date().toLocaleTimeString('fr-FR'), false);
+        // Après une sync réussie, re-migrer le local pour rester cohérent
+        // (utile si le merge a ramené des entrées distantes en ancien format).
+        if(typeof migratePaieDifferee === 'function') migratePaieDifferee();
       } else if (r) {
         r.json().then(function(e) { odSetStatus('Erreur upload : ' + (e.error && e.error.message || r.status), true); });
       }
