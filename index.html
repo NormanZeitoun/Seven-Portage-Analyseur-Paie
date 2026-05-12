@@ -2451,6 +2451,9 @@ function odLoad() {
         }
       });
       odSetStatus('✓ Données chargées depuis OneDrive', false);
+      // Migration : appliquer la logique "paie différée" aux anciens enregistrements
+      // venant éventuellement de OneDrive (peuvent être en ancien format si générés ailleurs).
+      if(typeof migratePaieDifferee === 'function') migratePaieDifferee();
       // Rafraîchir l'affichage
       if (typeof renderHistoire   === 'function') renderHistoire();
       if (typeof renderSuivi      === 'function') renderSuivi();
@@ -5431,8 +5434,51 @@ function saveToHistory() {
   odAutoSync();
 }
 
+// ======== MIGRATION : PAIE DIFFÉRÉE ========
+// Met à jour les anciens enregistrements de l'historique pour appliquer rétroactivement
+// la logique "paie différée" : toute ligne orphan_crm avec facture > 0 doit avoir
+// margePct=100 et paieDifferee=true (avant cette migration : margePct=null, pas de flag).
+// Idempotente : peut être ré-exécutée sans effet de bord.
+function migratePaieDifferee() {
+  try {
+    var raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return { migratedMonths: 0, migratedRows: 0 };
+    var h = JSON.parse(raw);
+    if(!Array.isArray(h)) return { migratedMonths: 0, migratedRows: 0 };
+    var nMonths = 0, nRows = 0, anyChange = false;
+    h.forEach(function(moisData) {
+      if(!moisData || !Array.isArray(moisData.results)) return;
+      var changed = false;
+      moisData.results.forEach(function(r) {
+        if(r.type === 'orphan_crm' && (r.facture||0) > 0) {
+          // Lignes en ancien format : margePct=null, pas de paieDifferee
+          if(r.margePct !== 100 || r.paieDifferee !== true) {
+            r.margePct = 100;
+            r.paieDifferee = true;
+            // Pour la fiche consultant et l'analyse client, la marge doit valoir le CA.
+            // Normalement déjà le cas (margeEur = facture), mais on sécurise.
+            if(r.margeEur !== r.facture) r.margeEur = r.facture;
+            nRows++;
+            changed = true;
+          }
+        }
+      });
+      if(changed) nMonths++;
+      anyChange = anyChange || changed;
+    });
+    if(anyChange) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(h));
+      console.log('[migration paie différée] ' + nRows + ' ligne(s) sur ' + nMonths + ' mois mises à jour');
+    }
+    return { migratedMonths: nMonths, migratedRows: nRows };
+  } catch(e) {
+    console.warn('[migration paie différée] erreur :', e);
+    return { migratedMonths: 0, migratedRows: 0, error: e.message };
+  }
+}
+
 // Auto-init OneDrive au chargement
-if(document.readyState === "loading") { document.addEventListener("DOMContentLoaded", function(){ odInit(); tkUpdateBadge(); tkPopulateStaffSelects(); }); } else { odInit(); tkUpdateBadge(); tkPopulateStaffSelects(); }
+if(document.readyState === "loading") { document.addEventListener("DOMContentLoaded", function(){ migratePaieDifferee(); odInit(); tkUpdateBadge(); tkPopulateStaffSelects(); }); } else { migratePaieDifferee(); odInit(); tkUpdateBadge(); tkPopulateStaffSelects(); }
 
 function renderHistory() {
   let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
@@ -5485,6 +5531,17 @@ function renderHistory() {
 function loadHistoryMonth(i) {
   let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
   currentResults=h[i];
+  // Sécurité : migration à la volée si certaines lignes orphan_crm sont encore en ancien format
+  // (cas où l'historique a été modifié hors de l'app, ou migration globale ratée).
+  if(currentResults && Array.isArray(currentResults.results)) {
+    currentResults.results.forEach(function(r) {
+      if(r.type === 'orphan_crm' && (r.facture||0) > 0 && r.paieDifferee !== true) {
+        r.margePct = 100;
+        r.paieDifferee = true;
+        if(r.margeEur !== r.facture) r.margeEur = r.facture;
+      }
+    });
+  }
   document.getElementById('header-period').textContent=MONTHS_FR[parseInt(currentResults.month)-1]+' '+currentResults.year;
   renderAnalysis();
   switchTab('analyse',document.querySelector('.nav-tab:nth-child(3)'));
