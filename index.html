@@ -352,7 +352,7 @@ select {
   <button class="nav-tab" onclick="switchTab('referentiel',this)">📚 Réf.</button>
   <button class="nav-tab" onclick="switchTab('dictionnaire',this)">🔗 Correc.</button>
   <span style="width:1px;height:20px;background:rgba(255,255,255,.25);margin:0 4px;align-self:center;display:inline-block;flex-shrink:0"></span>
-  <button class="nav-tab" onclick="switchTab('rentabilite',this)">💰 Rentab.</button>
+  <button class="nav-tab" onclick="switchTab('rentabilite',this)">📊 Rentabilité</button>
   <button class="nav-tab" onclick="switchTab('fidelite',this)">🤝 Fidélité</button>
   <span style="width:1px;height:20px;background:rgba(255,255,255,.25);margin:0 4px;align-self:center;display:inline-block;flex-shrink:0"></span>
   <button class="nav-tab" onclick="switchTab('taches',this)">✅ Tâches <span class="tab-badge" id="badge-taches" style="display:none">0</span></button>
@@ -1518,7 +1518,7 @@ select {
 .fiche-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--brand);margin-bottom:12px;padding-bottom:6px;border-bottom:1.5px solid var(--border)}
 .fiche-mois-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
 .fiche-mois-tbl th{padding:7px 11px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand);background:#F5F3FF;border-bottom:1.5px solid var(--border)}
-.fiche-mois-tbl td{padding:8px 11px;border-bottom:1px solid #F0EDF9;vertical-align:middle}
+.fiche-mois-tbl td{padding:8px 11px;border-bottom:1px solid #F0EDF9;vertical-align:middle;white-space:nowrap}
 .fiche-mois-tbl tr:last-child td{border-bottom:none}
 .fiche-mois-tbl tr:hover td{background:#FAFAFE}
 .fiche-chart{display:flex;align-items:flex-end;gap:4px;height:80px;margin-top:8px}
@@ -2869,6 +2869,50 @@ function buildFidConsData() {
     });
   });
 
+  // Injecter les factures manuelles : chacune compte comme un mois actif pour Fidélité.
+  // Si le consultant n'existait pas, son entrée est créée.
+  if(typeof loadFacturesManuelles === 'function') {
+    loadFacturesManuelles().forEach(function(f) {
+      var moisKey = f.year + '-' + ('0'+f.month).slice(-2);
+      // Clé : normalisée comme pour les matched
+      var nNorm = norm(f.nom || '');
+      if(!nNorm) return;
+      if(!map[nNorm]) {
+        map[nNorm] = {
+          nom: f.nom || nNorm,
+          passages: [],
+          lastMois: null,
+          commercial: f.commercial || ''
+        };
+      }
+      var c = map[nNorm];
+      var GAP_MAX = 2;
+      var lastPassage = c.passages[c.passages.length-1];
+      var isGap = false;
+      if(lastPassage) {
+        var lastMK = lastPassage.mois[lastPassage.mois.length-1];
+        var d1 = new Date(lastMK+'-01'), d2 = new Date(moisKey+'-01');
+        var diffMois = (d2.getFullYear()-d1.getFullYear())*12 + (d2.getMonth()-d1.getMonth());
+        if(diffMois > GAP_MAX+1 || diffMois < -GAP_MAX-1) isGap = true;
+      }
+      if(!lastPassage || isGap) {
+        c.passages.push({debut: moisKey, fin: moisKey, mois: []});
+        lastPassage = c.passages[c.passages.length-1];
+      }
+      // Pas de doublon si le mois est déjà compté
+      if(lastPassage.mois.indexOf(moisKey) === -1) {
+        lastPassage.mois.push(moisKey);
+      }
+      // Ré-évaluer début/fin du passage
+      lastPassage.mois.sort();
+      lastPassage.debut = lastPassage.mois[0];
+      lastPassage.fin   = lastPassage.mois[lastPassage.mois.length-1];
+      // Mise à jour lastMois global
+      if(!c.lastMois || moisKey > c.lastMois) c.lastMois = moisKey;
+      if(f.commercial && !c.commercial) c.commercial = f.commercial;
+    });
+  }
+
   // Calculer les métriques
   var result = [];
   var dernierMoisDispo = h.length ? h[h.length-1].year + '-' + ('0'+h[h.length-1].month).slice(-2) : '';
@@ -3258,7 +3302,9 @@ function getFacturesManuellesFor(targetTokens) {
   return loadFacturesManuelles().filter(function(f){ return f.normTokens === targetTokens; });
 }
 // Ajoute une facture manuelle. consultantName est le nom affiché.
-function addFactureManuelle(consultantName, year, month, ca) {
+// opts = { client, commercial, metier } — optionnels, utilisés pour les vues agrégées.
+function addFactureManuelle(consultantName, year, month, ca, opts) {
+  opts = opts || {};
   var normTok = norm(consultantName||'').split(/\s+/).filter(Boolean).sort().join(' ');
   if(!normTok) { alert('Nom du consultant invalide.'); return false; }
   if(!year || !month) { alert('Mois et année requis.'); return false; }
@@ -3278,6 +3324,9 @@ function addFactureManuelle(consultantName, year, month, ca) {
     year: String(year),
     month: ('0'+String(month)).slice(-2),
     ca: caNum,
+    client:     (opts.client||'').trim(),
+    commercial: (opts.commercial||'').trim(),
+    metier:     (opts.metier||'').trim(),
     createdAt: new Date().toISOString()
   });
   saveFacturesManuelles(list);
@@ -3325,8 +3374,9 @@ function openAddFactureManuelleModal() {
   // Pré-sélection : mois courant + année courante
   selM.value = ('0'+(new Date().getMonth()+1)).slice(-2);
   selY.value = String(nowY);
-  // Reset CA
+  // Reset CA + pré-remplir Client avec le dernier connu
   document.getElementById('add-fact-manu-ca').value = '';
+  document.getElementById('add-fact-manu-client').value = _currentFicheConsultant.defaultClient || '';
   // Afficher la modale
   var modal = document.getElementById('add-fact-manu-modal');
   if(modal.parentNode !== document.body) document.body.appendChild(modal);
@@ -3344,8 +3394,12 @@ function submitAddFactureManuelle() {
   var year = document.getElementById('add-fact-manu-year').value;
   var month = document.getElementById('add-fact-manu-month').value;
   var ca = document.getElementById('add-fact-manu-ca').value;
+  var client = (document.getElementById('add-fact-manu-client').value||'').trim();
   var consultantName = _currentFicheConsultant.realNom || _currentFicheConsultant.normNom;
-  var ok = addFactureManuelle(consultantName, year, month, ca);
+  // Récupérer aussi commercial/metier depuis le contexte (auto)
+  var commercial = _currentFicheConsultant.defaultCommercial || '';
+  var metier     = _currentFicheConsultant.defaultMetier || '';
+  var ok = addFactureManuelle(consultantName, year, month, ca, {client: client, commercial: commercial, metier: metier});
   if(!ok) return;
   closeAddFactureManuelleModal();
   // Re-render la fiche pour intégrer le nouvel ajout immédiatement
@@ -3446,9 +3500,9 @@ function openFicheConsultant(normNom) {
       margePct:  100,
       coutReel:  0,
       tjm:       0,
-      client:    '',
-      commercial:'',
-      metier:    '',
+      client:    f.client     || '',
+      commercial:f.commercial || '',
+      metier:    f.metier     || '',
       poste:     '',
       status:    '',
       paieDifferee: true,
@@ -3488,9 +3542,23 @@ function openFicheConsultant(normNom) {
   var margePctTot= caTotal > 0 ? (margeTotal/caTotal*100) : 0;
   var tjmMoy     = actifs.filter(function(m){ return m.tjm>0; });
   var tjmVal     = tjmMoy.length ? tjmMoy.reduce(function(s,m){ return s+m.tjm; },0)/tjmMoy.length : 0;
-  var dernierClient = actifs.length ? actifs[actifs.length-1].client : '';
-  var commercial    = actifs.length ? actifs[actifs.length-1].commercial : '';
-  var metier        = actifs.length ? actifs[actifs.length-1].metier || actifs[actifs.length-1].poste : '';
+  // Chercher le DERNIER mois actif avec client/commercial renseigné (en partant du plus récent)
+  // — utile pour pré-remplir la modale d'ajout manuel.
+  var dernierClient = '';
+  var commercial    = '';
+  var metier        = '';
+  for(var _i = actifs.length-1; _i >= 0; _i--) {
+    if(!dernierClient && actifs[_i].client)         dernierClient = actifs[_i].client;
+    if(!commercial    && actifs[_i].commercial)     commercial    = actifs[_i].commercial;
+    if(!metier        && (actifs[_i].metier || actifs[_i].poste)) metier = actifs[_i].metier || actifs[_i].poste;
+    if(dernierClient && commercial && metier) break;
+  }
+  // Stocker les défauts pour la modale d'ajout manuel
+  if(_currentFicheConsultant) {
+    _currentFicheConsultant.defaultClient     = dernierClient;
+    _currentFicheConsultant.defaultCommercial = commercial;
+    _currentFicheConsultant.defaultMetier     = metier;
+  }
   var debut = moisData[0].mois;
   var fin   = moisData[moisData.length-1].mois;
 
@@ -7090,6 +7158,8 @@ function renderClient() {
       const k = d.year + '-' + d.month;
       if(k > lastMoisKey) lastMoisKey = k;
     });
+    // Années couvertes par yd → pour filtrer les factures manuelles dans la bonne période
+    const yearsInScope = new Set(yd.map(d => String(d.year)));
     yd.forEach(d => {
       const moisKey = d.year+'-'+d.month;
       // Inclure les matched ET les paies différées (orphan_crm avec facture>0)
@@ -7111,6 +7181,22 @@ function renderClient() {
         if(moisKey === lastMoisKey) map[k].nActifs.add(r.nom);
       });
     });
+    // Injecter les factures manuelles : elles sont des paies différées 100%.
+    // On les filtre sur les années couvertes par yd (cohérent avec le périmètre).
+    if(typeof loadFacturesManuelles === 'function') {
+      loadFacturesManuelles().forEach(f => {
+        if(!yearsInScope.has(String(f.year))) return;
+        const v = (f[field]||'').trim();
+        if(!v) return; // sans valeur sur ce champ, on ne peut pas l'agréger
+        const moisKey = f.year + '-' + ('0'+f.month).slice(-2);
+        if(!map[v]) map[v] = {ca:0, marge:0, nPortes:new Set(), nMois:new Set(), nActifs:new Set()};
+        map[v].ca    += (f.ca||0);
+        map[v].marge += (f.ca||0); // paie différée : marge = CA
+        map[v].nPortes.add(f.nom);
+        map[v].nMois.add(moisKey);
+        if(moisKey === lastMoisKey) map[v].nActifs.add(f.nom);
+      });
+    }
     return Object.entries(map).map(([k,v])=>({
       label:k, ca:v.ca, marge:v.marge,
       margePct: v.ca>0?(v.marge/v.ca)*100:0,
@@ -8002,6 +8088,10 @@ function pilDrawCharts(monthly, months, objM, entrants, sortants, cmap, MFS){
         <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Année</label>
         <select id="add-fact-manu-year" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)"></select>
       </div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Client <span style="color:var(--text3);font-weight:400">(pré-rempli avec le dernier connu)</span></label>
+      <input id="add-fact-manu-client" type="text" placeholder="ex. TDS GLOBAL TECHNOLOGIES" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)" />
     </div>
     <div style="margin-bottom:18px">
       <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">CA facturé (€)</label>
