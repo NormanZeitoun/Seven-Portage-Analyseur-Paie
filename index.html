@@ -771,8 +771,8 @@ select {
         <div style="position:relative;height:220px"><canvas id="cl-ch-comm-ca" role="img" aria-label="CA par commercial">Graphique</canvas></div>
       </div>
       <div class="cl-card" style="margin-bottom:0">
-        <div class="cl-card-title">Portés par commercial</div>
-        <div style="position:relative;height:220px"><canvas id="cl-ch-comm-portes" role="img" aria-label="Portés par commercial">Graphique</canvas></div>
+        <div class="cl-card-title">Nbr de placements par commercial</div>
+        <div style="position:relative;height:220px"><canvas id="cl-ch-comm-portes" role="img" aria-label="Nbr de placements par commercial">Graphique</canvas></div>
       </div>
     </div>
     <div class="cl-card">
@@ -2392,13 +2392,22 @@ function odWithToken(cb) {
 
 function odBuildData() {
   // Collecter toutes les clés localStorage à synchroniser
-  var KEYS = [STORAGE_KEY, 'ref_overrides_v1', 'seven_portage_corrections_v1', FIN_KEY, 'seven_portage_taches_v1', 'seven_portage_tk_config_v1'];
+  var KEYS = [STORAGE_KEY, 'ref_overrides_v1', 'seven_portage_corrections_v1', FIN_KEY, 'seven_portage_taches_v1', 'seven_portage_tk_config_v1', 'seven_portage_factures_manuelles_v1'];
   var allKeys = Object.keys(localStorage).filter(function(k) {
     return KEYS.indexOf(k) >= 0 || k.indexOf('suivi_cp_') === 0 || k.indexOf('suivi_comment_') === 0;
   });
   var data = {};
   allKeys.forEach(function(k) {
-    try { data[k] = JSON.parse(localStorage.getItem(k)); }
+    // Utiliser spStorageGet qui sait décompresser les valeurs LZ-String,
+    // pour éviter de pousser sur OneDrive du contenu compressé non lisible côté merge.
+    try {
+      if(typeof spStorageGet === 'function') {
+        var v = spStorageGet(k);
+        data[k] = (v !== null && v !== undefined) ? v : JSON.parse(localStorage.getItem(k));
+      } else {
+        data[k] = JSON.parse(localStorage.getItem(k));
+      }
+    }
     catch(e) { data[k] = localStorage.getItem(k); }
   });
   return { version: 2, tool: 'SP_AnalyseurPaie', updated: new Date().toISOString(), data: data };
@@ -2443,6 +2452,19 @@ function odLoad() {
             }
           });
           localStorage.setItem(k, JSON.stringify(Object.values(taskMap)));
+        } else if(k === 'seven_portage_factures_manuelles_v1') {
+          // Merge factures manuelles : union par id (pas d'écrasement, locales conservées)
+          var localFM = (typeof spStorageGet === 'function')
+            ? (spStorageGet(k) || [])
+            : (function(){ try { return JSON.parse(localStorage.getItem(k)||'[]'); } catch(e){ return []; } })();
+          if(!Array.isArray(localFM)) localFM = [];
+          var remoteFM = Array.isArray(remoteData[k]) ? remoteData[k] : [];
+          var fmMap = {};
+          remoteFM.forEach(function(f) { if(f && f.id) fmMap[f.id] = f; });
+          localFM.forEach(function(f) { if(f && f.id) fmMap[f.id] = f; }); // local prioritaire
+          var mergedFM = Object.values(fmMap);
+          if(typeof spStorageSet === 'function') spStorageSet(k, mergedFM);
+          else localStorage.setItem(k, JSON.stringify(mergedFM));
         } else {
           // Pour les autres clés : toujours prendre la valeur distante
           if(remoteData[k] !== undefined && remoteData[k] !== null) {
@@ -2583,6 +2605,18 @@ function syncImport(inputEl) {
             }
           });
           localStorage.setItem(k, JSON.stringify(Object.values(taskMap)));
+        } else if (k === 'seven_portage_factures_manuelles_v1') {
+          // Merge factures manuelles : union par id (local prioritaire)
+          var localFM = (typeof spStorageGet === 'function')
+            ? (spStorageGet(k) || [])
+            : (function(){ try { return JSON.parse(localStorage.getItem(k)||'[]'); } catch(e3){ return []; } })();
+          if(!Array.isArray(localFM)) localFM = [];
+          var remoteFM = Array.isArray(remoteData[k]) ? remoteData[k] : [];
+          var fmMap = {};
+          remoteFM.forEach(function(f) { if(f && f.id) fmMap[f.id] = f; });
+          localFM.forEach(function(f) { if(f && f.id) fmMap[f.id] = f; });
+          if(typeof spStorageSet === 'function') spStorageSet(k, Object.values(fmMap));
+          else localStorage.setItem(k, JSON.stringify(Object.values(fmMap)));
         } else if (k === DICT_KEY || k === 'seven_portage_corrections_v1') {
           // Merge dictionnaire de corrections matching : union des associations
           // (local prioritaire pour ne pas écraser des associations récentes par d'anciennes).
@@ -2795,11 +2829,13 @@ function buildFidConsData() {
   h.forEach(function(moisData) {
     var moisKey = moisData.year + '-' + ('0'+moisData.month).slice(-2);
     (moisData.results||[]).forEach(function(r) {
-      if(r.type !== 'matched') return;
+      // Inclure les matched ET les paies différées (orphan_crm avec facture > 0)
+      // pour appliquer la règle unifiée : actif = facture > 0.
+      var fact = r.facture || 0;
+      if(fact === 0) return; // inactif → ignoré pour la fidélité
+      if(r.type !== 'matched' && r.type !== 'orphan_crm') return;
       var normNom = norm(r.nom || r.crmNom || '');
       if(!normNom) return;
-      var actif = (r.facture||0) > 0; // inactif = pas de CA
-      if(!actif) return; // ignorer mois mutuelle seulement
 
       if(!map[normNom]) {
         map[normNom] = {
@@ -3198,6 +3234,141 @@ function renderFideliteClients() {
 
 // ======== FICHE CONSULTANT ========
 
+// --- Factures manuelles : permet d'ajouter une facturation pour un mois absent du fichier source.
+// Stockées séparément de l'historique pour rester traçables et supprimables.
+// Format : [{ id, normTokens, nom, year, month, ca, createdAt }]
+const FACT_MANU_KEY = 'seven_portage_factures_manuelles_v1';
+function loadFacturesManuelles() {
+  try {
+    var d = (typeof spStorageGet === 'function')
+      ? (spStorageGet(FACT_MANU_KEY) || [])
+      : JSON.parse(localStorage.getItem(FACT_MANU_KEY) || '[]');
+    return Array.isArray(d) ? d : [];
+  } catch(e) { return []; }
+}
+function saveFacturesManuelles(list) {
+  try {
+    if(typeof spStorageSet === 'function') spStorageSet(FACT_MANU_KEY, list);
+    else localStorage.setItem(FACT_MANU_KEY, JSON.stringify(list));
+    return true;
+  } catch(e) { console.warn('[saveFacturesManuelles] erreur :', e); return false; }
+}
+// Renvoie les factures manuelles d'un consultant (matching tolérant à l'ordre des tokens).
+function getFacturesManuellesFor(targetTokens) {
+  return loadFacturesManuelles().filter(function(f){ return f.normTokens === targetTokens; });
+}
+// Ajoute une facture manuelle. consultantName est le nom affiché.
+function addFactureManuelle(consultantName, year, month, ca) {
+  var normTok = norm(consultantName||'').split(/\s+/).filter(Boolean).sort().join(' ');
+  if(!normTok) { alert('Nom du consultant invalide.'); return false; }
+  if(!year || !month) { alert('Mois et année requis.'); return false; }
+  var caNum = parseFloat(String(ca||'').replace(',','.').replace(/\s/g,''));
+  if(!(caNum > 0)) { alert('Le CA facturé doit être > 0.'); return false; }
+  var list = loadFacturesManuelles();
+  // Doublon strict : même consultant + même mois + même CA → bloquer
+  var doublon = list.find(function(f){
+    return f.normTokens === normTok && String(f.year) === String(year)
+        && String(f.month) === String(month) && Math.round(f.ca) === Math.round(caNum);
+  });
+  if(doublon) { alert('Une facture identique existe déjà pour ce mois.'); return false; }
+  list.push({
+    id: 'fm_' + Date.now() + '_' + Math.random().toString(36).slice(2,8),
+    normTokens: normTok,
+    nom: consultantName,
+    year: String(year),
+    month: ('0'+String(month)).slice(-2),
+    ca: caNum,
+    createdAt: new Date().toISOString()
+  });
+  saveFacturesManuelles(list);
+  // Synchroniser vers OneDrive après ajout
+  if(typeof odAutoSync === 'function') odAutoSync();
+  return true;
+}
+function deleteFactureManuelle(id) {
+  var list = loadFacturesManuelles().filter(function(f){ return f.id !== id; });
+  saveFacturesManuelles(list);
+  if(typeof odAutoSync === 'function') odAutoSync();
+}
+
+// Modale d'ajout manuel : ouverture / fermeture / soumission
+function openAddFactureManuelleModal() {
+  if(!_currentFicheConsultant) { alert('Ouvre une fiche consultant d\'abord.'); return; }
+  // Remplir consultant
+  document.getElementById('add-fact-manu-consultant').textContent =
+    _currentFicheConsultant.realNom || _currentFicheConsultant.normNom || '—';
+  // Mois : 1-12
+  var selM = document.getElementById('add-fact-manu-month');
+  selM.innerHTML = '';
+  for(var i=1;i<=12;i++) {
+    var opt = document.createElement('option');
+    opt.value = ('0'+i).slice(-2);
+    opt.textContent = MONTHS_FR[i-1];
+    selM.appendChild(opt);
+  }
+  // Année : plage basée sur l'historique + année courante + l'année suivante
+  var selY = document.getElementById('add-fact-manu-year');
+  selY.innerHTML = '';
+  var years = new Set();
+  try {
+    var h = spStorageGet(STORAGE_KEY) || [];
+    h.forEach(function(d){ if(d.year) years.add(String(d.year)); });
+  } catch(e){}
+  var nowY = new Date().getFullYear();
+  years.add(String(nowY)); years.add(String(nowY+1));
+  var arr = Array.from(years).sort();
+  arr.forEach(function(y){
+    var opt = document.createElement('option');
+    opt.value = y; opt.textContent = y;
+    selY.appendChild(opt);
+  });
+  // Pré-sélection : mois courant + année courante
+  selM.value = ('0'+(new Date().getMonth()+1)).slice(-2);
+  selY.value = String(nowY);
+  // Reset CA
+  document.getElementById('add-fact-manu-ca').value = '';
+  // Afficher la modale
+  var modal = document.getElementById('add-fact-manu-modal');
+  if(modal.parentNode !== document.body) document.body.appendChild(modal);
+  modal.style.display = 'flex';
+  setTimeout(function(){ document.getElementById('add-fact-manu-ca').focus(); }, 50);
+}
+
+function closeAddFactureManuelleModal() {
+  var modal = document.getElementById('add-fact-manu-modal');
+  if(modal) modal.style.display = 'none';
+}
+
+function submitAddFactureManuelle() {
+  if(!_currentFicheConsultant) return;
+  var year = document.getElementById('add-fact-manu-year').value;
+  var month = document.getElementById('add-fact-manu-month').value;
+  var ca = document.getElementById('add-fact-manu-ca').value;
+  var consultantName = _currentFicheConsultant.realNom || _currentFicheConsultant.normNom;
+  var ok = addFactureManuelle(consultantName, year, month, ca);
+  if(!ok) return;
+  closeAddFactureManuelleModal();
+  // Re-render la fiche pour intégrer le nouvel ajout immédiatement
+  openFicheConsultant(_currentFicheConsultant.normNom);
+  // Rafraîchir aussi la liste rentabilité si elle est à l'écran (vue cohérence)
+  if(typeof renderRentabilite === 'function') {
+    try { renderRentabilite(); } catch(e){}
+  }
+}
+
+function confirmDeleteFactureManuelle(id) {
+  if(!confirm('Supprimer cet ajout manuel ?\n\nLe CA correspondant sera retiré des totaux du consultant.')) return;
+  deleteFactureManuelle(id);
+  // Re-render la fiche
+  if(_currentFicheConsultant) openFicheConsultant(_currentFicheConsultant.normNom);
+  if(typeof renderRentabilite === 'function') {
+    try { renderRentabilite(); } catch(e){}
+  }
+}
+
+// Consultant actuellement ouvert dans la fiche (utilisé pour les actions manuelles)
+var _currentFicheConsultant = null;
+
 function openFicheConsultant(normNom) {
   var h = [];
   try { h = (spStorageGet(STORAGE_KEY) || []); } catch(e) {}
@@ -3210,16 +3381,20 @@ function openFicheConsultant(normNom) {
     return norm(String(s||'')).split(/\s+/).filter(Boolean).sort().join(' ');
   }
   var targetTokens = normTokens(normNom);
+  // Mémoriser la fiche en cours pour les boutons (ajout/suppression manuelle)
+  _currentFicheConsultant = { normNom: normNom, targetTokens: targetTokens };
   var moisData = [];
   h.forEach(function(moisHist) {
     var moisKey = moisHist.year + '-' + ('0'+moisHist.month).slice(-2);
     (moisHist.results||[]).forEach(function(r) {
-      // Deux cas de "paie différée" :
-      //   1. type orphan_crm avec facture > 0 (paie reportée, coût = 0)
-      //   2. type matched mais coût ≤ SEUIL_INACTIF (mutuelle seulement) avec facture > 0
-      //      → cas où la consultante est en pause mission mais facturée (régul, forfait, etc.)
-      var isOrphanDiff   = r.type === 'orphan_crm' && (r.paieDifferee || (r.facture||0) > 0);
-      var isMutuelleDiff = r.type === 'matched'    && (r.coutTotal||0) <= SEUIL_INACTIF && (r.facture||0) > 0;
+      // Règle unifiée : un consultant est ACTIF sur un mois ssi sa facture > 0.
+      // Le coût ne décide plus de l'actif/inactif. Le seuil SEUIL_INACTIF reste
+      // utilisé uniquement comme étiquette informationnelle (badge "mutuelle").
+      // Paie différée = facture > 0 ET (coût = 0 OU coût mutuelle ≤ seuil).
+      var fact           = r.facture || 0;
+      var coutTotal      = r.coutTotal || 0;
+      var isOrphanDiff   = r.type === 'orphan_crm' && fact > 0;
+      var isMutuelleDiff = r.type === 'matched'    && coutTotal <= SEUIL_INACTIF && fact > 0;
       var isPaieDiff     = isOrphanDiff || isMutuelleDiff;
       if(r.type !== 'matched' && !isOrphanDiff) return;
       // Match si l'un des deux libellés (nom paie OU crmNom) partage les mêmes tokens triés que la cible.
@@ -3229,8 +3404,8 @@ function openFicheConsultant(normNom) {
       // Pour les cas "paie différée" (orphan_crm OU matched mutuelle), on neutralise le coût
       // côté affichage de la fiche pour calculer une marge à 100% du CA.
       // Le localStorage reste intact (coût réel préservé pour les KPI mensuels globaux).
-      var caAff    = r.facture   || 0;
-      var coutAff  = isPaieDiff ? 0 : (r.coutTotal || 0);
+      var caAff    = fact;
+      var coutAff  = isPaieDiff ? 0 : coutTotal;
       var margeAff = isPaieDiff ? caAff : (r.margeEur || 0);
       var pctAff   = isPaieDiff ? (caAff > 0 ? 100 : 0) : (r.margePct || 0);
       moisData.push({
@@ -3241,7 +3416,7 @@ function openFicheConsultant(normNom) {
         cout:      coutAff,
         marge:     margeAff,
         margePct:  pctAff,
-        coutReel:  r.coutTotal || 0, // pour rappel info (utile en tooltip)
+        coutReel:  coutTotal, // pour rappel info (utile en tooltip)
         tjm:       r.tjm        || 0,
         client:    r.client     || '',
         commercial:r.commercial || '',
@@ -3250,12 +3425,42 @@ function openFicheConsultant(normNom) {
         status:    r.status     || '',
         paieDifferee:        !!isPaieDiff,
         paieDiffereeMutuelle: !!isMutuelleDiff,
-        // Un mois de paie différée est actif (le consultant a bien produit du CA),
-        // même si le coût technique est à 0 ou ≤ seuil mutuelle → on s'appuie sur le CA pour le décider.
-        actif:     (r.coutTotal||0) > SEUIL_INACTIF || isPaieDiff
+        // NOUVELLE RÈGLE : actif = facturé ce mois-là, peu importe le coût paie.
+        actif:     fact > 0
       });
     });
   });
+
+  // Injecter les factures manuelles de ce consultant (paie différée pure : marge = CA, coût = 0)
+  // Si une facture manuelle existe pour un mois déjà présent dans moisData, on cumule avec les autres lignes.
+  var facturesManu = getFacturesManuellesFor(targetTokens);
+  facturesManu.forEach(function(f) {
+    var moisKey = f.year + '-' + ('0'+f.month).slice(-2);
+    moisData.push({
+      mois:      moisKey,
+      year:      f.year,
+      month:     f.month,
+      ca:        f.ca || 0,
+      cout:      0,
+      marge:     f.ca || 0,
+      margePct:  100,
+      coutReel:  0,
+      tjm:       0,
+      client:    '',
+      commercial:'',
+      metier:    '',
+      poste:     '',
+      status:    '',
+      paieDifferee: true,
+      paieDiffereeMutuelle: false,
+      manuelle:  true,
+      manuelleId: f.id,
+      actif:     true // un ajout manuel a toujours une facture > 0 → actif
+    });
+  });
+
+  // Re-trier moisData chronologiquement après injection
+  moisData.sort(function(a,b){ return a.mois.localeCompare(b.mois); });
 
   if(!moisData.length) return;
 
@@ -3273,6 +3478,8 @@ function openFicheConsultant(normNom) {
       }
     });
   });
+  // Compléter le contexte du consultant courant avec le nom réel pour l'ajout manuel
+  if(_currentFicheConsultant) _currentFicheConsultant.realNom = realNom;
 
   var actifs = moisData.filter(function(m){ return m.actif; });
   var inactifs = moisData.filter(function(m){ return !m.actif; });
@@ -3336,7 +3543,10 @@ function openFicheConsultant(normNom) {
     var trStyle = (!m.actif) ? 'opacity:.5;font-style:italic' : '';
     // Tag à côté du mois : "mutuelle" si vrai inactif, "💸 Paie différée" si paie différée
     var moisTag = '';
-    if(m.paieDifferee) {
+    if(m.manuelle) {
+      // Ajout manuel : badge ✏️ Manuel (+ paie différée implicite)
+      moisTag = '<span style="font-size:10px;color:#fff;background:var(--brand);padding:1px 6px;border-radius:6px;margin-left:6px" title="Facturation ajoutée manuellement le ' + (m.manuelleId||'') + '">✏️ Manuel</span>';
+    } else if(m.paieDifferee) {
       var tagLabel = m.paieDiffereeMutuelle ? '💸 Paie diff. (mutuelle)' : '💸 Paie différée';
       var tagTitle = m.paieDiffereeMutuelle ? 'Mois mutuelle (' + Math.round(m.coutReel) + ' € payés) : marge 100% du CA, coût ignoré pour la fiche' : 'Mois facturé sans paie : marge 100% du CA';
       moisTag = '<span style="font-size:10px;color:var(--brand);background:#ECE6FF;padding:1px 6px;border-radius:6px;margin-left:6px" title="'+tagTitle+'">'+tagLabel+'</span>';
@@ -3345,6 +3555,13 @@ function openFicheConsultant(normNom) {
     }
     // Affichage marge : afficher si actif (y compris paie différée)
     var showMarge = m.actif;
+    // Cellule statut : pour une ligne manuelle, on met une croix de suppression à la place
+    var statutCell = '';
+    if(m.manuelle) {
+      statutCell = '<button onclick="confirmDeleteFactureManuelle(\''+m.manuelleId+'\')" title="Supprimer cet ajout manuel" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:14px;padding:2px 6px">🗑️</button>';
+    } else if(m.actif && m.status && !m.paieDifferee) {
+      statutCell = '<span class="rent-tag" style="font-size:10px;padding:1px 6px;background:var(--brand-soft);color:var(--brand)">'+(STATUT_LABELS[m.status]||m.status)+'</span>';
+    }
     return '<tr style="'+trStyle+'">'+
       '<td style="font-weight:600;white-space:nowrap">'+moisLabel+moisTag+'</td>'+
       '<td style="text-align:right;font-family:var(--mono)">'+(m.ca>0?Math.round(m.ca).toLocaleString('fr-FR')+' €':'—')+'</td>'+
@@ -3353,7 +3570,7 @@ function openFicheConsultant(normNom) {
       '<td style="text-align:right;font-family:var(--mono);font-weight:600;'+mc2+'">'+(showMarge?m.margePct.toFixed(1)+'%':'—')+'</td>'+
       '<td style="text-align:right;font-family:var(--mono)">'+(m.tjm>0?Math.round(m.tjm).toLocaleString('fr-FR')+' €':'—')+'</td>'+
       '<td style="font-size:11.5px;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+( m.client||'—')+'</td>'+
-      '<td>'+(m.actif&&m.status&&!m.paieDifferee?'<span class="rent-tag" style="font-size:10px;padding:1px 6px;background:var(--brand-soft);color:var(--brand)">'+(STATUT_LABELS[m.status]||m.status)+'</span>':'')+'</td>'+
+      '<td>'+statutCell+'</td>'+
     '</tr>';
   }).join('');
 
@@ -3398,11 +3615,12 @@ function buildRentData() {
     var moisKey = year + '-' + month;
 
     (moisData.results||[]).forEach(function(r) {
-      // Deux cas de paie différée (cohérent avec la fiche consultant) :
-      //   1. orphan_crm avec facture > 0
-      //   2. matched avec coût ≤ SEUIL_INACTIF (mutuelle seulement) ET facture > 0
-      var isOrphanDiff   = r.type === 'orphan_crm' && (r.paieDifferee || (r.facture||0) > 0);
-      var isMutuelleDiff = r.type === 'matched'    && (r.coutTotal||0) <= SEUIL_INACTIF && (r.facture||0) > 0;
+      // Règle unifiée actif/inactif : facture > 0 → actif.
+      // Paie différée (= marge 100% du CA) = facture > 0 ET coût ≤ seuil (mutuelle ou 0).
+      var fact           = r.facture || 0;
+      var coutTotal      = r.coutTotal || 0;
+      var isOrphanDiff   = r.type === 'orphan_crm' && fact > 0;
+      var isMutuelleDiff = r.type === 'matched'    && coutTotal <= SEUIL_INACTIF && fact > 0;
       var isPaieDiff     = isOrphanDiff || isMutuelleDiff;
       if(r.type !== 'matched' && !isOrphanDiff) return;
 
@@ -3433,13 +3651,13 @@ function buildRentData() {
 
       // Pour les paies différées : coût virtuellement à 0, marge = CA, marge% = 100
       // (le coût mutuelle réel n'est pas compté dans cette vue consultant — cohérent fiche)
-      var caEff    = r.facture || 0;
-      var coutEff  = isPaieDiff ? 0 : (r.coutTotal || 0);
+      var caEff    = fact;
+      var coutEff  = isPaieDiff ? 0 : coutTotal;
       var margeEff = isPaieDiff ? caEff : (r.margeEur || 0);
       var pctEff   = isPaieDiff ? (caEff > 0 ? 100 : 0) : (r.margePct || 0);
 
-      // Inactif = pas de CA facturé ET pas une paie différée (donc vraiment rien à compter)
-      if(caEff === 0 && !isPaieDiff) {
+      // NOUVELLE RÈGLE : inactif = pas de facture du tout. Le coût ne décide plus.
+      if(fact === 0) {
         c.moisInactifs.push(moisKey);
       } else {
         c.moisActifs.push({
@@ -3455,6 +3673,38 @@ function buildRentData() {
       // Mettre à jour commercial si plus récent
       if(r.commercial) c.commercial = r.commercial;
       if(r.client)     c.client     = r.client;
+    });
+  });
+
+  // Injecter les factures manuelles : chacune crée un mois actif (paie différée, marge 100%)
+  // Si le consultant n'existait pas du tout dans l'historique, on crée son entrée.
+  loadFacturesManuelles().forEach(function(f) {
+    var key = f.normTokens;
+    if(!key) return;
+    var moisKey = f.year + '-' + ('0'+f.month).slice(-2);
+    if(!map[key]) {
+      map[key] = {
+        nom: f.nom || key,
+        commercial: '',
+        client: '',
+        metier: '',
+        moisActifs: [],
+        moisInactifs: [],
+        debut: moisKey,
+        fin: moisKey
+      };
+    }
+    var c = map[key];
+    if(moisKey < c.debut) c.debut = moisKey;
+    if(moisKey > c.fin)   c.fin   = moisKey;
+    c.moisActifs.push({
+      mois:     moisKey,
+      ca:       f.ca || 0,
+      marge:    f.ca || 0,
+      margePct: 100,
+      tjm:      0,
+      cout:     0,
+      statut:   'paie_differee_manuelle'
     });
   });
 
@@ -6835,25 +7085,39 @@ function renderClient() {
     const map = {};
     // Dernier mois disponible
     const lastMoisKey = yd.length ? yd[yd.length-1].year+'-'+yd[yd.length-1].month : '';
+    // Mois en cours (date du jour) au format AAAA-MM
+    const _now = new Date();
+    const _curMonth = ('0'+(_now.getMonth()+1)).slice(-2);
+    const currentMoisKey = _now.getFullYear()+'-'+_curMonth;
     yd.forEach(d => {
       const moisKey = d.year+'-'+d.month;
-      d.results.filter(r=>r.type==='matched'&&r.facture>0&&r[field]).forEach(r => {
+      // Inclure les matched ET les paies différées (orphan_crm avec facture>0)
+      d.results.filter(r => {
+        if(!(r.facture>0)) return false;
+        if(!r[field]) return false;
+        if(r.type === 'matched') return true;
+        if(r.type === 'orphan_crm' && (r.paieDifferee || (r.facture||0) > 0)) return true;
+        return false;
+      }).forEach(r => {
         const k = r[field].trim();
         if(!k) return;
-        if(!map[k]) map[k] = {ca:0, marge:0, nPortes:new Set(), nMois:new Set(), nActifs:new Set()};
+        if(!map[k]) map[k] = {ca:0, marge:0, nPortes:new Set(), nMois:new Set(), nActifs:new Set(), nActifsCurrent:new Set()};
         map[k].ca    += r.facture;
         map[k].marge += r.margeEur;
         map[k].nPortes.add(r.nom);
         map[k].nMois.add(moisKey);
-        // Portés actifs = portés présents sur le DERNIER mois disponible
+        // Portés actifs = portés présents sur le DERNIER mois disponible (legacy)
         if(moisKey === lastMoisKey) map[k].nActifs.add(r.nom);
+        // Portés actifs MOIS EN COURS (date du jour) — pour la nouvelle colonne commerciaux
+        if(moisKey === currentMoisKey) map[k].nActifsCurrent.add(r.nom);
       });
     });
     return Object.entries(map).map(([k,v])=>({
       label:k, ca:v.ca, marge:v.marge,
       margePct: v.ca>0?(v.marge/v.ca)*100:0,
       nPortes: v.nPortes.size, nMois: v.nMois.size,
-      nActifs: v.nActifs.size
+      nActifs: v.nActifs.size,
+      nActifsCurrent: v.nActifsCurrent.size
     })).sort((a,b)=>b.ca-a.ca);
   }
 
@@ -6965,7 +7229,8 @@ function renderClient() {
   else rEl.innerHTML=`<div class="cl-badge cl-bgrn">✓ CA bien réparti — concentration acceptable</div>`;
 
   // Table clients
-  const hdrs = ['Client','CA '+year1,'Marge €','Marge %','Portés','Mois actifs',year2?'CA '+year2:'','Évol.'].filter(Boolean);
+  // Colonnes : Client | CA | Marge € | Marge % | Portés (actifs dernier mois) | Nbr de Placement (consultants distincts cumulés) | [CA N-1 | Évol.]
+  const hdrs = ['Client','CA '+year1,'Marge €','Marge %','Portés','Nbr de Placement',year2?'CA '+year2:'','Évol.'].filter(Boolean);
   const cmap2 = Object.fromEntries(clients2.map(c=>[c.label,c]));
   // ── Top 5 meilleure marge (min 3 portés) ──
   const top5Marge = clients1.filter(c=>c.nPortes>=3).sort((a,b)=>b.margePct-a.margePct).slice(0,5);
@@ -7004,7 +7269,7 @@ function renderClient() {
         <td style="font-family:var(--font-mono)">${Math.round(c.ca).toLocaleString('fr-FR')} €<span style="font-size:10px;color:var(--text2);margin-left:4px">${pct}%</span></td>
         <td style="font-family:var(--font-mono)">${Math.round(c.marge).toLocaleString('fr-FR')} €</td>
         <td style="font-family:var(--font-mono);${mpC}">${c.margePct.toFixed(1)}%</td>
-        <td>${c.nActifs||0}</td><td>${c.nPortes}</td><td>${c.nMois}</td>
+        <td>${c.nActifs||0}</td><td>${c.nPortes||0}</td>
         ${year2?`<td style="font-family:var(--font-mono)">${c2?Math.round(c2.ca).toLocaleString('fr-FR')+' €':'—'}</td><td>${evol||'—'}</td>`:''}
       </tr>`;
     }).join('') +
@@ -7022,7 +7287,7 @@ function renderClient() {
   );
   mkChart('cl-ch-comm-portes','bar',
     comms1.map(c=>c.label),
-    [{label:'Portés uniques', data:comms1.map(c=>c.nPortes),
+    [{label:'Nbr de placements', data:comms1.map(c=>c.nPortes),
       backgroundColor:comms1.map((_,i)=>COLORS[i%COLORS.length]+'99'),borderRadius:4}],
     {extra:{scales:{y:{ticks:{precision:0}}}}}
   );
@@ -7030,7 +7295,7 @@ function renderClient() {
   const totCAComm = comms1.reduce((s,c)=>s+c.ca,0);
   const cm2map = Object.fromEntries(comms2.map(c=>[c.label,c]));
   document.getElementById('cl-tbl-comm').innerHTML =
-    `<thead><tr><th>Commercial</th><th>CA ${year1}</th><th>Marge €</th><th>Marge %</th><th>Portés</th><th>Part CA</th>${year2?`<th>CA ${year2}</th><th>Évol.</th>`:''}</tr></thead><tbody>` +
+    `<thead><tr><th>Commercial</th><th>CA ${year1}</th><th>Marge €</th><th>Marge %</th><th>Nbr de placements</th><th>Portés actifs</th><th>Part CA</th>${year2?`<th>CA ${year2}</th><th>Évol.</th>`:''}</tr></thead><tbody>` +
     comms1.map(c => {
       const c2 = cm2map[c.label];
       const part = totCAComm>0?(c.ca/totCAComm*100).toFixed(1):'—';
@@ -7042,7 +7307,9 @@ function renderClient() {
         <td style="font-family:var(--font-mono)">${Math.round(c.ca).toLocaleString('fr-FR')} €</td>
         <td style="font-family:var(--font-mono)">${Math.round(c.marge).toLocaleString('fr-FR')} €</td>
         <td style="font-family:var(--font-mono);${mpC}">${c.margePct.toFixed(1)}%</td>
-        <td>${c.nPortes}</td><td>${part}%</td>
+        <td>${c.nPortes||0}</td>
+        <td style="font-weight:600;color:var(--brand)">${c.nActifsCurrent||0}</td>
+        <td>${part}%</td>
         ${year2?`<td style="font-family:var(--font-mono)">${c2?Math.round(c2.ca).toLocaleString('fr-FR')+' €':'—'}</td><td>${evol}</td>`:''}
       </tr>`;
     }).join('') + '</tbody>';
@@ -7692,7 +7959,10 @@ function pilDrawCharts(monthly, months, objM, entrants, sortants, cmap, MFS){
         <div class="fiche-chart" id="fiche-chart"></div>
       </div>
       <div class="fiche-section">
-        <div class="fiche-section-title">Détail mois par mois</div>
+        <div class="fiche-section-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Détail mois par mois</span>
+          <button onclick="openAddFactureManuelleModal()" style="font-size:12px;padding:5px 12px;background:var(--brand);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600">+ Ajouter facturation manuelle</button>
+        </div>
         <table class="fiche-mois-tbl">
           <thead><tr>
             <th>Mois</th>
@@ -7710,6 +7980,38 @@ function pilDrawCharts(monthly, months, objM, entrants, sortants, cmap, MFS){
     </div>
   </div>
 </div>
+</div>
+
+<!-- Modale d'ajout de facture manuelle (paie différée 100%) -->
+<div id="add-fact-manu-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:420px;max-width:92vw;box-shadow:0 12px 48px rgba(0,0,0,.25)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="margin:0;font-size:17px;font-weight:700;color:var(--text)">Ajouter une facturation manuelle</h3>
+      <button onclick="closeAddFactureManuelleModal()" style="border:none;background:none;cursor:pointer;font-size:18px;color:var(--text3)">✕</button>
+    </div>
+    <div style="color:var(--text3);font-size:12px;margin-bottom:16px;line-height:1.5">
+      Pour <strong id="add-fact-manu-consultant" style="color:var(--text)">—</strong>.<br/>
+      Cette facture sera ajoutée en <strong style="color:var(--brand)">paie différée</strong> (marge = 100% du CA, coût = 0).
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Mois</label>
+        <select id="add-fact-manu-month" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)"></select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Année</label>
+        <select id="add-fact-manu-year" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)"></select>
+      </div>
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">CA facturé (€)</label>
+      <input id="add-fact-manu-ca" type="text" inputmode="decimal" placeholder="ex. 17000" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--mono)" />
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeAddFactureManuelleModal()" style="padding:8px 16px;background:#F0EDF9;color:var(--text2);border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Annuler</button>
+      <button onclick="submitAddFactureManuelle()" style="padding:8px 16px;background:var(--brand);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Ajouter</button>
+    </div>
+  </div>
 </div>
 
 
