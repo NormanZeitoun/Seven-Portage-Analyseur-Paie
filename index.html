@@ -2583,6 +2583,23 @@ function syncImport(inputEl) {
             }
           });
           localStorage.setItem(k, JSON.stringify(Object.values(taskMap)));
+        } else if (k === DICT_KEY || k === 'seven_portage_corrections_v1') {
+          // Merge dictionnaire de corrections matching : union des associations
+          // (local prioritaire pour ne pas écraser des associations récentes par d'anciennes).
+          var localDict = (typeof spStorageGet === 'function')
+            ? (spStorageGet(k) || {})
+            : (function(){ try { return JSON.parse(localStorage.getItem(k)||'{}'); } catch(e) { return {}; } })();
+          var remoteDict = remoteData[k] || {};
+          var mergedDict = {};
+          Object.keys(remoteDict).forEach(function(kk) { mergedDict[kk] = remoteDict[kk]; });
+          // Local écrase remote (associations plus récentes)
+          Object.keys(localDict).forEach(function(kk) { mergedDict[kk] = localDict[kk]; });
+          if (typeof spStorageSet === 'function') {
+            spStorageSet(k, mergedDict);
+          } else {
+            localStorage.setItem(k, JSON.stringify(mergedDict));
+          }
+          console.log('[import] dict matching mergé : ' + Object.keys(localDict).length + ' local + ' + Object.keys(remoteDict).length + ' remote → ' + Object.keys(mergedDict).length + ' total');
         } else {
           if (remoteData[k] !== undefined && remoteData[k] !== null) {
             localStorage.setItem(k, typeof remoteData[k] === 'string' ? remoteData[k] : JSON.stringify(remoteData[k]));
@@ -4737,10 +4754,29 @@ function exportRef() {
 const DICT_KEY = 'seven_portage_corrections_v1';
 
 function loadDict() {
-  try { return JSON.parse(localStorage.getItem(DICT_KEY)||'{}'); } catch(e) { return {}; }
+  // Utilise spStorageGet qui sait gérer le format LZ-String compressé
+  // (sinon JSON.parse plante sur les anciennes données compressées et le dict apparaît vide).
+  try {
+    var d = (typeof spStorageGet === 'function')
+      ? spStorageGet(DICT_KEY)
+      : JSON.parse(localStorage.getItem(DICT_KEY)||'{}');
+    return (d && typeof d === 'object') ? d : {};
+  } catch(e) {
+    console.warn('[loadDict] erreur :', e);
+    return {};
+  }
 }
 function saveDict(dict) {
-  try { localStorage.setItem(DICT_KEY, JSON.stringify(dict)); } catch(e) {}
+  // Sauvegarde via spStorageSet (qui compressera en LZ-String si la taille dépasse 10 KB).
+  try {
+    if(typeof spStorageSet === 'function') {
+      spStorageSet(DICT_KEY, dict);
+    } else {
+      localStorage.setItem(DICT_KEY, JSON.stringify(dict));
+    }
+  } catch(e) {
+    console.warn('[saveDict] erreur :', e);
+  }
 }
 // Clé du dictionnaire = clé normalisée du label paie
 function dictKey(label) {
