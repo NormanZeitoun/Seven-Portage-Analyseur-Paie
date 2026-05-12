@@ -2497,6 +2497,92 @@ function odPush() {
 
 function syncData() { odPush(); }
 
+// ======== EXPORT / IMPORT LOCAL (JSON) ========
+// Sauvegarde de secours : permet d'exporter toutes les données localStorage en JSON
+// et de les ré-importer (avec la même logique de merge que odLoad).
+function syncExport() {
+  try {
+    var dump = odBuildData();
+    var body = JSON.stringify(dump, null, 2);
+    var blob = new Blob([body], { type: 'application/json' });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    var ts   = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    a.href = url;
+    a.download = 'seven_portage_paie_backup_' + ts + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+    if (typeof odSetStatus === 'function') odSetStatus('✓ Export OK — ' + a.download, false);
+  } catch(e) {
+    alert('Erreur export : ' + e.message);
+  }
+}
+
+function syncImport(inputEl) {
+  if (!inputEl || !inputEl.files || !inputEl.files[0]) return;
+  var file = inputEl.files[0];
+  if (!confirm('Importer "' + file.name + '" ?\n\nLes données seront fusionnées avec les données actuelles (mêmes règles de merge que la sync OneDrive : historique et tâches fusionnés, autres clés remplacées).')) {
+    inputEl.value = '';
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      var backup = JSON.parse(ev.target.result);
+      if (!backup || !backup.data) {
+        alert('Fichier invalide : structure { data: {...} } attendue.');
+        return;
+      }
+      var remoteData = backup.data;
+      Object.keys(remoteData).forEach(function(k) {
+        if (k === STORAGE_KEY) {
+          // Merge intelligent historique : union par year+month (local prioritaire)
+          var local = [];
+          try { local = JSON.parse(localStorage.getItem(k) || '[]'); } catch(e) {}
+          var remote = Array.isArray(remoteData[k]) ? remoteData[k] : [];
+          var map = {};
+          local.forEach(function(d) { map[d.year + '_' + d.month] = d; });
+          remote.forEach(function(d) { if (!map[d.year + '_' + d.month]) map[d.year + '_' + d.month] = d; });
+          var merged = Object.values(map).sort(function(a,b) { return (b.year+b.month).localeCompare(a.year+a.month); });
+          localStorage.setItem(k, JSON.stringify(merged));
+        } else if (k === 'seven_portage_taches_v1') {
+          // Merge tâches : union par id, plus récente gagne
+          var localTasks = [];
+          try { localTasks = JSON.parse(localStorage.getItem(k) || '[]'); } catch(e2) {}
+          var remoteTasks = Array.isArray(remoteData[k]) ? remoteData[k] : [];
+          var taskMap = {};
+          remoteTasks.forEach(function(t) { if(t.id) taskMap[t.id] = t; });
+          localTasks.forEach(function(t) {
+            if(!t.id) return;
+            if(!taskMap[t.id] || (t.updated && (!taskMap[t.id].updated || t.updated > taskMap[t.id].updated))) {
+              taskMap[t.id] = t;
+            }
+          });
+          localStorage.setItem(k, JSON.stringify(Object.values(taskMap)));
+        } else {
+          if (remoteData[k] !== undefined && remoteData[k] !== null) {
+            localStorage.setItem(k, typeof remoteData[k] === 'string' ? remoteData[k] : JSON.stringify(remoteData[k]));
+          }
+        }
+      });
+      if (typeof odSetStatus === 'function') odSetStatus('✓ Import OK — rechargement…', false);
+      // Rafraîchir l'UI puis recharger la page pour que tous les états repartent propres
+      setTimeout(function(){ location.reload(); }, 600);
+    } catch(e) {
+      alert('Erreur import : ' + e.message);
+    } finally {
+      inputEl.value = '';
+    }
+  };
+  reader.onerror = function() {
+    alert('Impossible de lire le fichier.');
+    inputEl.value = '';
+  };
+  reader.readAsText(file);
+}
+
 function odAutoSync() {
   if (!odToken) return;
   if (window._odAutoSyncTimer) clearTimeout(window._odAutoSyncTimer);
