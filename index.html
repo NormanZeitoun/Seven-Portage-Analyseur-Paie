@@ -351,6 +351,7 @@ select {
   <button class="nav-tab" onclick="switchTab('client',this)">🏢 Clients</button>
   <button class="nav-tab" onclick="switchTab('referentiel',this)">📚 Réf.</button>
   <button class="nav-tab" onclick="switchTab('dictionnaire',this)">🔗 Correc.</button>
+  <button class="nav-tab" onclick="switchTab('rattachements',this)">🔀 Rattach. <span class="tab-badge warn" id="badge-rattach" style="display:none">0</span></button>
   <span style="width:1px;height:20px;background:rgba(255,255,255,.25);margin:0 4px;align-self:center;display:inline-block;flex-shrink:0"></span>
   <button class="nav-tab" onclick="switchTab('rentabilite',this)">📊 Rentabilité</button>
   <button class="nav-tab" onclick="switchTab('fidelite',this)">🤝 Fidélité</button>
@@ -387,6 +388,19 @@ select {
 
 <!-- ======== TAB IMPORT ======== -->
 <div id="tab-import" class="tab-pane active">
+
+  <!-- BANDEAU MIGRATION v71 -->
+  <div id="migration-banner" style="background:linear-gradient(135deg,#7343EE,#4B36EC);color:white;padding:16px 20px;border-radius:8px;margin-bottom:20px;display:none;align-items:center;gap:16px;flex-wrap:wrap">
+    <div style="font-size:32px">🎁</div>
+    <div style="flex:1;min-width:240px">
+      <div style="font-weight:700;font-size:16px;margin-bottom:4px">Migration v71 — Données retraitées disponibles</div>
+      <div style="font-size:13px;opacity:0.92">Importe en 1 clic les 39 mois retraités (2023→2026) avec les 118 rattachements pré-identifiés. Un backup automatique sera téléchargé avant remplacement.</div>
+    </div>
+    <button class="btn" onclick="lancerMigrationV71()" style="background:white;color:#7343EE;font-weight:600;padding:10px 20px;border-radius:6px;border:none;cursor:pointer;font-size:14px">
+      📥 Lancer la migration
+    </button>
+    <button onclick="document.getElementById('migration-banner').style.display='none';localStorage.setItem('migration_v71_hidden','1')" style="background:transparent;color:white;border:1px solid rgba(255,255,255,0.4);padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Masquer ce bandeau">✕</button>
+  </div>
 
   <div class="form-row">
     <div class="form-group">
@@ -612,6 +626,7 @@ select {
           <button class="filter-btn" onclick="filterTable('orphan_crm',this)">Sans salaire</button>
           <button class="filter-btn" onclick="filterTable('internal',this)">Personnel interne</button>
           <button class="filter-btn" onclick="filterTable('bp_zero',this)">BP à zéro</button>
+          <button class="filter-btn" onclick="filterTable('cout_seven',this)">🏢 Coût SP</button>
           <button class="filter-btn" onclick="filterTable('has_swile',this)">🍽 Avec Swile</button>
           <button class="filter-btn" onclick="filterTable('has_avantages',this)">🎁 Avec Avantages</button>
         </div>
@@ -945,6 +960,44 @@ select {
   </div>
   <div id="dict-list"></div>
 </div>
+
+<!-- ======== TAB RATTACHEMENTS ======== -->
+<div id="tab-rattachements" class="tab-pane">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:10px">
+    <div>
+      <p style="font-weight:600;font-size:15px">🔀 Rattachements Avantages/Swile → Consultant en paie</p>
+      <p style="font-size:12px;color:var(--text2);margin-top:3px">Pour chaque ligne "coût Seven Portage" détectée, choisir le consultant correspondant (le rattachement s'appliquera à tous les mois)</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" onclick="renderRattachements()">↻ Rafraîchir</button>
+      <button class="btn btn-primary btn-sm" onclick="recalculerTous()">⚡ Recalculer tous les mois</button>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:12px;margin-bottom:1rem;flex-wrap:wrap">
+    <div class="card" style="flex:1;min-width:180px;padding:12px">
+      <div style="font-size:11px;color:var(--text2);text-transform:uppercase">À rattacher</div>
+      <div id="ratt-stat-pending" style="font-size:22px;font-weight:700;color:var(--warn)">—</div>
+    </div>
+    <div class="card" style="flex:1;min-width:180px;padding:12px">
+      <div style="font-size:11px;color:var(--text2);text-transform:uppercase">Déjà rattachés</div>
+      <div id="ratt-stat-done" style="font-size:22px;font-weight:700;color:var(--ok)">—</div>
+    </div>
+    <div class="card" style="flex:1;min-width:180px;padding:12px">
+      <div style="font-size:11px;color:var(--text2);text-transform:uppercase">Montant total à rattacher</div>
+      <div id="ratt-stat-amount" style="font-size:22px;font-weight:700;color:var(--violet)">—</div>
+    </div>
+  </div>
+
+  <div id="ratt-empty" class="empty" style="display:none">
+    <div class="empty-icon">✅</div>
+    <p>Aucun rattachement nécessaire.<br>Tous les avantages et swile sont matchés.</p>
+  </div>
+  
+  <div id="ratt-list" style="display:flex;flex-direction:column;gap:10px"></div>
+</div>
+
+
 
 <div id="tab-historique" class="tab-pane">
   <div id="history-empty" class="empty">
@@ -1760,7 +1813,7 @@ function spStorageGet(key) {
   if(localStorage.getItem('migrate_lz_v1') === 'done') return;
   if(typeof LZString === 'undefined') { setTimeout(migrateToCompressed, 500); return; }
   try {
-    var KEYS_TO_COMPRESS = [STORAGE_KEY, 'ref_overrides_v1', 'seven_portage_corrections_v1', 'seven_portage_taches_v1'];
+    var KEYS_TO_COMPRESS = [STORAGE_KEY, 'ref_overrides_v1', 'seven_portage_corrections_v1', 'seven_portage_taches_v1', 'seven_portage_rattachements_v1'];
     var totalBefore = 0, totalAfter = 0;
     KEYS_TO_COMPRESS.forEach(function(k) {
       var raw = localStorage.getItem(k);
@@ -1928,6 +1981,7 @@ function switchTab(name, btn) {
   if(contentEl) contentEl.style.maxWidth = name==='suivi' ? 'none' : '';
   if(name==='historique') renderHistory();
   if(name==='dictionnaire') renderDict();
+  if(name==='rattachements') renderRattachements();
   if(name==='suivi') renderSuivi();
   if(name==='referentiel') { renderRef(); setTimeout(updateRefAClasserBadge, 100); }
   if(name==='financier') renderFinancier();
@@ -2156,7 +2210,7 @@ function fillSel(id, headers, hints) {
 function normPart(s) {
   return String(s||'').toLowerCase().trim()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/['\-_]/g,' ').replace(/\s+/g,' ').trim();
+    .replace(/['`\-_".,«»\u2018\u2019\u201C\u201D]/g,' ').replace(/\s+/g,' ').trim();
 }
 
 
@@ -2400,7 +2454,7 @@ function odWithToken(cb) {
 
 function odBuildData() {
   // Collecter toutes les clés localStorage à synchroniser
-  var KEYS = [STORAGE_KEY, 'ref_overrides_v1', 'seven_portage_corrections_v1', FIN_KEY, 'seven_portage_taches_v1', 'seven_portage_tk_config_v1', 'seven_portage_factures_manuelles_v1'];
+  var KEYS = [STORAGE_KEY, 'ref_overrides_v1', 'seven_portage_corrections_v1', FIN_KEY, 'seven_portage_taches_v1', 'seven_portage_tk_config_v1', 'seven_portage_factures_manuelles_v1', 'seven_portage_rattachements_v1'];
   var allKeys = Object.keys(localStorage).filter(function(k) {
     return KEYS.indexOf(k) >= 0 || k.indexOf('suivi_cp_') === 0 || k.indexOf('suivi_comment_') === 0 || k.indexOf('rent_comment_') === 0;
   });
@@ -5236,6 +5290,513 @@ function findInDict(label) {
 }
 // Efface une entrée du dictionnaire
 
+// ======== RATTACHEMENTS AVANTAGES/SWILE → PAIE ========
+// Permet de rattacher une ligne d'avantage/swile dont le nom diffère du consultant en paie
+const RATT_KEY = 'seven_portage_rattachements_v1';
+
+function loadRatt() {
+  try {
+    var d = (typeof spStorageGet === 'function')
+      ? spStorageGet(RATT_KEY)
+      : JSON.parse(localStorage.getItem(RATT_KEY)||'{}');
+    return (d && typeof d === 'object') ? d : {};
+  } catch(e) { return {}; }
+}
+function saveRatt(d) {
+  try {
+    if(typeof spStorageSet === 'function') spStorageSet(RATT_KEY, d);
+    else localStorage.setItem(RATT_KEY, JSON.stringify(d));
+  } catch(e) { console.warn('saveRatt:', e); }
+}
+
+// Clé normalisée d'un nom (alphabétique uniquement, accents enlevés)
+function rattKey(s) {
+  return String(s||'').toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,'');
+}
+
+// Applique les rattachements sur une liste de clés issues du fichier Av/Sw
+// Retourne la liste des clés ÉTENDUE (clés originales + cibles rattachées)
+function applyRattachements(keys) {
+  const ratt = loadRatt();
+  const out = [...keys];
+  for(const k of keys) {
+    const kClean = rattKey(k);
+    if(ratt[kClean]) out.push(ratt[kClean]);
+  }
+  return [...new Set(out)];
+}
+
+// Ajoute un rattachement : nom dans fichier Av/Sw → nom consultant en paie
+function addRattachement(nomFichier, nomPaie) {
+  const ratt = loadRatt();
+  // Construire les 2 clés (nom+prenom et prenom+nom) à partir de "Nom Prénom"
+  const keysFichier = nameToKeys(nomFichier);
+  const cibleKey = nameToKeys(nomPaie)[0]; // 1ère variante = nom+prenom canonique
+  if(!cibleKey) return false;
+  for(const k of keysFichier) {
+    ratt[rattKey(k)] = rattKey(cibleKey);
+  }
+  saveRatt(ratt);
+  return true;
+}
+
+function removeRattachement(nomFichier) {
+  const ratt = loadRatt();
+  const keysFichier = nameToKeys(nomFichier);
+  for(const k of keysFichier) {
+    delete ratt[rattKey(k)];
+  }
+  saveRatt(ratt);
+}
+
+// Helper : décomposer "NOM Prénom" en clés
+function nameToKeys(fullName) {
+  if(!fullName) return [];
+  const parts = String(fullName).trim().split(/\s+/);
+  // Tous les mots en MAJUSCULES = nom, le reste = prénom
+  let splitIdx = 0;
+  for(let i=0; i<parts.length; i++) {
+    if(parts[i] === parts[i].toUpperCase() && parts[i].length > 1) splitIdx = i + 1;
+    else break;
+  }
+  if(splitIdx === 0) splitIdx = 1;
+  const nom = parts.slice(0, splitIdx).join(' ');
+  const prenom = parts.slice(splitIdx).join(' ');
+  return buildExtraKeys(nom, prenom);
+}
+
+// ======== UI ONGLET RATTACHEMENTS ========
+
+function escapeHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Retourne tous les consultants existants dans l'historique (toutes années)
+// pour peupler le dropdown
+function getAllConsultantsFromHistory() {
+  try {
+    const histo = spStorageGet(STORAGE_KEY) || [];
+    const set = new Set();
+    histo.forEach(d => {
+      (d.results||[]).forEach(r => {
+        if(r.type === 'orphan_crm' || r.type === 'cout_seven') return;
+        if(r.nom) set.add(r.nom);
+        if(r.crmNom && r.crmNom !== '—') set.add(r.crmNom);
+      });
+    });
+    return [...set].sort((a,b)=>a.localeCompare(b,'fr'));
+  } catch(e) { return []; }
+}
+
+// Retourne toutes les lignes cout_seven (avec contexte mois)
+function getAllCoutSeven() {
+  try {
+    const histo = spStorageGet(STORAGE_KEY) || [];
+    const byName = {};
+    histo.forEach(d => {
+      (d.results||[]).forEach(r => {
+        if(r.type !== 'cout_seven') return;
+        const key = r.nom;
+        if(!byName[key]) byName[key] = {nom:r.nom, items:[], total:0};
+        byName[key].items.push({
+          year: d.year, month: d.month,
+          swile: r.swile||0, avantages: r.avantages||0,
+          coutTotal: r.coutTotal||0
+        });
+        byName[key].total += (r.coutTotal||0);
+      });
+    });
+    return Object.values(byName).sort((a,b)=>b.total-a.total);
+  } catch(e) { return []; }
+}
+
+// Vérifie si un nom a déjà un rattachement
+function getRattachementFor(nom) {
+  const ratt = loadRatt();
+  const keys = nameToKeys(nom);
+  for(const k of keys) {
+    const kClean = rattKey(k);
+    if(ratt[kClean]) return ratt[kClean];
+  }
+  return null;
+}
+
+// Trouve le nom complet correspondant à une clé rattachée
+function findNameForRattachKey(rattachedKey, allConsultants) {
+  for(const c of allConsultants) {
+    const ck = nameToKeys(c)[0];
+    if(ck && rattKey(ck) === rattachedKey) return c;
+  }
+  return null;
+}
+
+function renderRattachements() {
+  const container = document.getElementById('ratt-list');
+  const empty = document.getElementById('ratt-empty');
+  if(!container) return;
+  
+  const coutSevenItems = getAllCoutSeven();
+  const allConsultants = getAllConsultantsFromHistory();
+  
+  // Stats
+  let nPending = 0, nDone = 0, amountPending = 0;
+  coutSevenItems.forEach(item => {
+    const ratt = getRattachementFor(item.nom);
+    if(ratt) nDone++;
+    else { nPending++; amountPending += item.total; }
+  });
+  
+  document.getElementById('ratt-stat-pending').textContent = nPending;
+  document.getElementById('ratt-stat-done').textContent = nDone;
+  document.getElementById('ratt-stat-amount').textContent = amountPending.toFixed(0) + ' €';
+  
+  // Badge tab
+  const badge = document.getElementById('badge-rattach');
+  if(badge) {
+    if(nPending > 0) { badge.style.display=''; badge.textContent = nPending; }
+    else { badge.style.display='none'; }
+  }
+  
+  if(coutSevenItems.length === 0) {
+    empty.style.display = 'block';
+    container.innerHTML = '';
+    return;
+  }
+  empty.style.display = 'none';
+  
+  // Liste
+  let html = '';
+  coutSevenItems.forEach((item, idx) => {
+    const rattachedKey = getRattachementFor(item.nom);
+    const rattachedName = rattachedKey ? findNameForRattachKey(rattachedKey, allConsultants) : null;
+    const isRattached = !!rattachedKey;
+    
+    // Détails compacts mois
+    const moisStr = item.items.map(i => `${i.year.slice(2)}-${i.month}`).join(', ');
+    
+    html += `
+      <div class="card" style="padding:12px;border-left:4px solid ${isRattached?'var(--ok)':'var(--warn)'}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:240px">
+            <div style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px">
+              ${isRattached ? '✅' : '🔀'} ${escapeHtml(item.nom)}
+              <span style="font-size:11px;background:var(--bg2);padding:2px 6px;border-radius:4px;color:var(--text2);font-weight:500">
+                ${item.total.toFixed(0)} € · ${item.items.length} ligne${item.items.length>1?'s':''}
+              </span>
+            </div>
+            <div style="font-size:11px;color:var(--text2);margin-top:4px">Mois : ${moisStr}</div>
+            ${isRattached ? `<div style="font-size:12px;color:var(--ok);margin-top:6px">→ rattaché à : <b>${escapeHtml(rattachedName || rattachedKey)}</b></div>` : ''}
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+            <select id="ratt-select-${idx}" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;min-width:240px">
+              <option value="">— Choisir un consultant —</option>
+              <option value="__ignore__">🚫 Ignorer (ne pas rattacher)</option>
+              ${allConsultants.map(c => `<option value="${escapeHtml(c)}" ${rattachedName===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="saveRattachementUI(${idx})">💾</button>
+            ${isRattached ? `<button class="btn btn-secondary btn-sm" onclick="removeRattachementUI(${idx})" title="Supprimer le rattachement">🗑</button>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+  // Mémoriser les items pour le save
+  window._rattCurrentItems = coutSevenItems;
+}
+
+function saveRattachementUI(idx) {
+  const items = window._rattCurrentItems || [];
+  const item = items[idx];
+  if(!item) return;
+  const sel = document.getElementById('ratt-select-' + idx);
+  if(!sel || !sel.value) { alert('Choisis un consultant dans la liste.'); return; }
+  if(sel.value === '__ignore__') {
+    // Pas de rattachement, mais on marque pour ne plus afficher (option future)
+    if(confirm(`Ignorer "${item.nom}" ? Cette ligne restera en cout_seven.`)) {
+      alert('Action prise en compte. La ligne reste affichée mais n\'est plus prioritaire.');
+    }
+    return;
+  }
+  addRattachement(item.nom, sel.value);
+  alert(`✅ Rattaché : "${item.nom}" → "${sel.value}"\n\nN'oublie pas de cliquer sur "⚡ Recalculer tous les mois" pour appliquer.`);
+  renderRattachements();
+}
+
+function removeRattachementUI(idx) {
+  const items = window._rattCurrentItems || [];
+  const item = items[idx];
+  if(!item) return;
+  if(!confirm(`Supprimer le rattachement pour "${item.nom}" ?`)) return;
+  removeRattachement(item.nom);
+  renderRattachements();
+}
+
+// Recalcule tous les mois en rechargeant les fichiers... mais on n'a plus les fichiers sources.
+// Solution : on ré-applique les rattachements directement sur les données stockées.
+// Pour chaque mois : on récupère les lignes cout_seven, on regarde si elles ont un rattachement,
+// et si oui on retire la ligne cout_seven et on ajoute le montant sur la ligne du consultant cible.
+function recalculerTous() {
+  if(!confirm('Recalculer tous les mois avec les rattachements actuels ?\n\nCela va modifier l\'historique stocké.')) return;
+  
+  try {
+    const histo = spStorageGet(STORAGE_KEY) || [];
+    if(!Array.isArray(histo) || histo.length === 0) {
+      alert('Aucun historique trouvé.'); return;
+    }
+    
+    let totalModified = 0;
+    let totalLines = 0;
+    
+    histo.forEach(monthData => {
+      const results = monthData.results || [];
+      const newResults = [];
+      const toMerge = {}; // clé consultant cible → {sw, av} à ajouter
+      
+      // 1. Parcourir et séparer lignes cout_seven rattachables vs autres
+      results.forEach(r => {
+        if(r.type !== 'cout_seven') { newResults.push(r); return; }
+        const rattachedKey = getRattachementFor(r.nom);
+        if(!rattachedKey) { newResults.push(r); return; }
+        // Rattaché : on prépare le merge
+        if(!toMerge[rattachedKey]) toMerge[rattachedKey] = {sw:0, av:0};
+        toMerge[rattachedKey].sw += (r.swile||0);
+        toMerge[rattachedKey].av += (r.avantages||0);
+        totalLines++;
+      });
+      
+      // 2. Réinjecter dans les lignes cibles existantes
+      Object.entries(toMerge).forEach(([targetKey, amounts]) => {
+        // Trouver la ligne consultant correspondante
+        const targetLine = newResults.find(r => {
+          if(r.type === 'orphan_crm' || r.type === 'cout_seven') return false;
+          const keys = nameToKeys(r.nom);
+          return keys.some(k => rattKey(k) === targetKey);
+        });
+        if(targetLine) {
+          targetLine.swile = (targetLine.swile||0) + amounts.sw;
+          targetLine.avantages = (targetLine.avantages||0) + amounts.av;
+          targetLine.coutTotal = (targetLine.coutPaie||0) + (targetLine.swile||0) + (targetLine.avantages||0);
+          targetLine.margeEur = (targetLine.facture||0) - (targetLine.coutTotal||0);
+          targetLine.margePct = targetLine.facture > 0 ? (targetLine.margeEur / targetLine.facture) * 100 : null;
+          totalModified++;
+        } else {
+          // Pas trouvé : on remet une ligne cout_seven sous le nom cible
+          newResults.push({
+            nom: targetKey, crmNom: '—',
+            coutPaie: 0, swile: amounts.sw, avantages: amounts.av,
+            coutTotal: amounts.sw + amounts.av,
+            facture: 0, margeEur: -(amounts.sw + amounts.av), margePct: null,
+            status: 'cout_seven', type: 'cout_seven'
+          });
+        }
+      });
+      
+      monthData.results = newResults;
+      monthData.updatedAt = Date.now();
+    });
+    
+    spStorageSet(STORAGE_KEY, histo);
+    alert(`✅ Recalcul terminé !\n\n${totalLines} lignes cout_seven rattachées\n${totalModified} consultants mis à jour\n\nLes vues vont se rafraîchir.`);
+    
+    renderRattachements();
+    // Refresh les vues impactées
+    if(typeof renderHistorique === 'function') renderHistorique();
+    if(typeof renderSuivi === 'function') renderSuivi();
+    if(typeof renderRentabilite === 'function') renderRentabilite();
+    if(typeof renderFidelite === 'function') renderFidelite();
+    if(typeof syncToOneDrive === 'function') {
+      // Proposer la synchro
+      if(confirm('Synchroniser les changements vers OneDrive maintenant ?')) syncToOneDrive();
+    }
+  } catch(e) {
+    console.error('recalculerTous:', e);
+    alert('❌ Erreur : ' + e.message);
+  }
+}
+
+// ======== MIGRATION v71 ========
+// Permet d'importer en 1 clic les 4 années retraitées + les rattachements initiaux
+function lancerMigrationV71() {
+  if(!confirm(
+    'MIGRATION v71\n\n' +
+    'Cette action va :\n' +
+    '  1. Télécharger un BACKUP de tes données actuelles\n' +
+    '  2. Remplacer les mois 2023, 2024, 2025, 2026 par les versions retraitées\n' +
+    '  3. Charger les 118 rattachements pré-identifiés\n\n' +
+    'Sélectionne TOUS les fichiers JSON ensemble (Ctrl+clic) :\n' +
+    '  - 2023_retraite.json\n' +
+    '  - 2024_retraite.json\n' +
+    '  - 2025_retraite.json\n' +
+    '  - 2026_retraite.json\n' +
+    '  - rattachements_initiaux.json\n\n' +
+    'Continuer ?'
+  )) return;
+  
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.multiple = true;
+  input.onchange = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) { console.log('❌ Annulé'); return; }
+    
+    // ÉTAPE 1 : Backup automatique
+    console.log('📦 Étape 1/4 : backup en cours...');
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) {
+        let dataBackup;
+        if(raw.startsWith('LZ:') && typeof LZString !== 'undefined') {
+          dataBackup = LZString.decompressFromUTF16(raw.slice(3));
+        } else {
+          dataBackup = raw;
+        }
+        const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+        const blob = new Blob([dataBackup], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `seven_portage_BACKUP_AVANT_MIGRATION_v71_${ts}.json`;
+        a.click();
+        console.log('✅ Backup téléchargé : ' + a.download);
+      }
+    } catch(e) {
+      console.error('Erreur backup :', e);
+      if(!confirm('⚠️ Backup impossible. Continuer quand même ? (risque de perdre les données)')) return;
+    }
+    
+    // ÉTAPE 2 : Analyse des fichiers
+    console.log('📂 Étape 2/4 : analyse des ' + files.length + ' fichiers...');
+    let moisAnnees = [];  // array de mois
+    let rattachements = null; // dict de rattachements
+    
+    for (const file of files) {
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        
+        if(Array.isArray(data)) {
+          // Tableau = données mensuelles (XXXX_retraite.json)
+          moisAnnees = moisAnnees.concat(data);
+          console.log('  ✅ ' + file.name + ' → ' + data.length + ' mois');
+        } else if(typeof data === 'object') {
+          // Objet = dictionnaire de rattachements
+          rattachements = data;
+          console.log('  ✅ ' + file.name + ' → ' + Object.keys(data).length + ' rattachements');
+        }
+      } catch(err) {
+        console.error('  ❌ ' + file.name + ' : ' + err.message);
+        alert('❌ Erreur lecture ' + file.name + ' : ' + err.message);
+        return;
+      }
+    }
+    
+    if(moisAnnees.length === 0 && !rattachements) {
+      alert('❌ Aucune donnée valide trouvée dans les fichiers sélectionnés.');
+      return;
+    }
+    
+    // ÉTAPE 3 : Import des mois
+    if(moisAnnees.length > 0) {
+      console.log('🔄 Étape 3a/4 : import de ' + moisAnnees.length + ' mois...');
+      let historique = [];
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(raw) {
+          if(raw.startsWith('LZ:') && typeof LZString !== 'undefined') {
+            historique = JSON.parse(LZString.decompressFromUTF16(raw.slice(3)));
+          } else {
+            historique = JSON.parse(raw);
+          }
+        }
+      } catch(e) { historique = []; }
+      if(!Array.isArray(historique)) historique = [];
+      
+      const map = {};
+      historique.forEach(d => { map[`${d.year}_${d.month}`] = d; });
+      
+      let replaced = 0, added = 0;
+      moisAnnees.forEach(d => {
+        const key = `${d.year}_${d.month}`;
+        d.updatedAt = Date.now();
+        if(map[key]) replaced++;
+        else added++;
+        map[key] = d;
+      });
+      
+      const merged = Object.values(map).sort((a,b) => (b.year+b.month).localeCompare(a.year+a.month));
+      console.log('  ✅ ' + replaced + ' mois remplacés, ' + added + ' ajoutés');
+      
+      // Sauvegarder
+      try {
+        spStorageSet(STORAGE_KEY, merged);
+        console.log('  ✅ Historique sauvegardé');
+      } catch(err) {
+        alert('❌ Erreur sauvegarde historique : ' + err.message);
+        return;
+      }
+    }
+    
+    // ÉTAPE 3b : Import rattachements
+    if(rattachements) {
+      console.log('🔄 Étape 3b/4 : import de ' + Object.keys(rattachements).length + ' rattachements...');
+      try {
+        const existant = loadRatt();
+        const merged = {...existant, ...rattachements};
+        saveRatt(merged);
+        console.log('  ✅ ' + Object.keys(merged).length + ' rattachements total');
+      } catch(err) {
+        alert('⚠️ Erreur rattachements : ' + err.message + '\n(Les mois ont quand même été importés)');
+      }
+    }
+    
+    // ÉTAPE 4 : Marquer la migration faite + rappel sync
+    console.log('✅ Étape 4/4 : migration terminée');
+    localStorage.setItem('migration_v71_done', new Date().toISOString());
+    
+    // Cacher le bandeau
+    const banner = document.getElementById('migration-banner');
+    if(banner) banner.style.display = 'none';
+    
+    // Confirmer succès
+    const detailsMsg = 
+      '✅ MIGRATION TERMINÉE\n\n' +
+      (moisAnnees.length > 0 ? '📊 ' + moisAnnees.length + ' mois importés\n' : '') +
+      (rattachements ? '🔀 ' + Object.keys(rattachements).length + ' rattachements chargés\n' : '') +
+      '💾 Backup auto téléchargé dans Downloads\n\n' +
+      'Prochaines étapes :\n' +
+      '  • Aller dans l\'onglet "🔀 Rattach." pour voir les cas restants\n' +
+      '  • Cliquer "⚡ Recalculer tous les mois"\n' +
+      '  • Sync OneDrive pour propager\n\n' +
+      'Recharger la page (F5) maintenant ?';
+    
+    if(confirm(detailsMsg)) {
+      location.reload();
+    }
+  };
+  input.click();
+}
+
+// Afficher le bandeau migration si pas encore fait
+function checkMigrationBanner() {
+  try {
+    const done = localStorage.getItem('migration_v71_done');
+    const hidden = localStorage.getItem('migration_v71_hidden');
+    const banner = document.getElementById('migration-banner');
+    if(banner && !done && !hidden) {
+      banner.style.display = 'flex';
+    }
+  } catch(e) {}
+}
+// Lancer au chargement
+if(typeof window !== 'undefined') {
+  window.addEventListener('DOMContentLoaded', checkMigrationBanner);
+  // Au cas où la page est déjà chargée
+  setTimeout(checkMigrationBanner, 500);
+}
+
 function goToMatching() {
   const iSN=getIdx('map-synth-nom'), iSC=getIdx('map-synth-cout');
   const iCN=getIdx('map-crm-nom'), iCP=getIdx('map-crm-prenom'), iCF=getIdx('map-crm-facture');
@@ -5335,7 +5896,8 @@ function goToMatching() {
         const p=iSWP>=0&&r[iSWP]?String(r[iSWP]||'').trim():'';
         if(!n) return;
         const montant = parseAmt(r[iSWC]) * swileMultiplier;
-        buildExtraKeys(n, p).forEach(k => { swileMap[k]=(swileMap[k]||0)+montant; });
+        const allKeys = applyRattachements(buildExtraKeys(n, p));
+        allKeys.forEach(k => { swileMap[k]=(swileMap[k]||0)+montant; });
       });
     }
   }
@@ -5350,7 +5912,8 @@ function goToMatching() {
         const p=iAVP>=0&&r[iAVP]?String(r[iAVP]||'').trim():'';
         if(!n) return;
         const montant = parseAmt(r[iAVC]);
-        buildExtraKeys(n, p).forEach(k => { avantagesMap[k]=(avantagesMap[k]||0)+montant; });
+        const allKeys = applyRattachements(buildExtraKeys(n, p));
+        allKeys.forEach(k => { avantagesMap[k]=(avantagesMap[k]||0)+montant; });
       });
     }
   }
@@ -5833,6 +6396,7 @@ function renderTable(results, filter) {
   else if(filter==='no_cost')    filtered=results.filter(r=>r.status==='no_cost'&&r.type==='matched');
   else if(filter==='internal')   filtered=results.filter(r=>r.type==='internal');
   else if(filter==='bp_zero')    filtered=results.filter(r=>r.type==='bp_zero');
+  else if(filter==='cout_seven') filtered=results.filter(r=>r.type==='cout_seven');
   else if(filter==='has_swile')      filtered=results.filter(r=>(r.swile||0)>0);
   else if(filter==='has_avantages')  filtered=results.filter(r=>(r.avantages||0)>0);
 
@@ -5848,6 +6412,7 @@ function renderTable(results, filter) {
     }
     else if(r.type==='internal')      { badge='Personnel interne';  badgeClass='badge-info'; }
     else if(r.type==='bp_zero')       { badge='BP à zéro';          badgeClass='badge-gray'; }
+    else if(r.type==='cout_seven')    { badge='🏢 Coût SP';          badgeClass='badge-info'; }
     else if(r.status==='alerte')      { badge='🔴 Alerte';          badgeClass='badge-danger'; }
     else if(r.status==='insuffisant') { badge='🟠 Insuffisant';     badgeClass='badge-warn'; }
     else if(r.status==='no_cost')     { badge='⬜ Sans coût';       badgeClass='badge-gray'; }
@@ -5860,7 +6425,7 @@ function renderTable(results, filter) {
     const nameHtml = r.type==='matched' && norm(r.nom)!==norm(r.crmNom)
       ? `<div class="name-main">${r.nom}</div><div class="name-sub">CRM : ${r.crmNom}</div>`
       : `<div class="name-main">${r.nom}</div>`;
-    const factureCell = r.type==='internal'||r.type==='bp_zero'
+    const factureCell = r.type==='internal'||r.type==='bp_zero'||r.type==='cout_seven'
       ? '<td class="mono" style="color:var(--text3)">—</td><td class="mono" style="color:var(--text3)">—</td><td class="mono" style="color:var(--text3)">—</td>'
       : `<td class="mono">${r.facture>0?fmt(r.facture)+' €'+(r.factureCompl?` <span style="font-size:10px;color:var(--info)" title="dont ${fmt(r.factureCompl)} € complémentaire">+${fmt(r.factureCompl)}</span>`:''):'—'}</td><td class="mono ${mc}">${fmt(r.margeEur)} €</td><td class="mono ${mc}" style="font-weight:600">${fmtPct(r.margePct)}</td>`;
     return `<tr>
