@@ -394,10 +394,10 @@ select {
     <div style="font-size:32px">🎁</div>
     <div style="flex:1;min-width:240px">
       <div style="font-weight:700;font-size:16px;margin-bottom:4px">Migration v71 — Données retraitées disponibles</div>
-      <div style="font-size:13px;opacity:0.92">Importe en 1 clic les 39 mois retraités (2023→2026) avec les 118 rattachements pré-identifiés. Un backup automatique sera téléchargé avant remplacement.</div>
+      <div style="font-size:13px;opacity:0.92">Clique sur le bouton, puis sélectionne les 5 fichiers JSON (Ctrl+clic pour sélection multiple) : <strong>2023_retraite.json, 2024_retraite.json, 2025_retraite.json, 2026_retraite.json, rattachements_initiaux.json</strong>. Un backup auto sera téléchargé.</div>
     </div>
     <button class="btn" onclick="lancerMigrationV71()" style="background:white;color:#7343EE;font-weight:600;padding:10px 20px;border-radius:6px;border:none;cursor:pointer;font-size:14px">
-      📥 Lancer la migration
+      📥 Sélectionner les fichiers
     </button>
     <button onclick="document.getElementById('migration-banner').style.display='none';localStorage.setItem('migration_v71_hidden','1')" style="background:transparent;color:white;border:1px solid rgba(255,255,255,0.4);padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Masquer ce bandeau">✕</button>
   </div>
@@ -5620,28 +5620,38 @@ function recalculerTous() {
 // ======== MIGRATION v71 ========
 // Permet d'importer en 1 clic les 4 années retraitées + les rattachements initiaux
 function lancerMigrationV71() {
-  if(!confirm(
-    'MIGRATION v71\n\n' +
-    'Cette action va :\n' +
-    '  1. Télécharger un BACKUP de tes données actuelles\n' +
-    '  2. Remplacer les mois 2023, 2024, 2025, 2026 par les versions retraitées\n' +
-    '  3. Charger les 118 rattachements pré-identifiés\n\n' +
-    'Sélectionne TOUS les fichiers JSON ensemble (Ctrl+clic) :\n' +
-    '  - 2023_retraite.json\n' +
-    '  - 2024_retraite.json\n' +
-    '  - 2025_retraite.json\n' +
-    '  - 2026_retraite.json\n' +
-    '  - rattachements_initiaux.json\n\n' +
-    'Continuer ?'
-  )) return;
+  // IMPORTANT : on déclenche le file picker AVANT le confirm
+  // car Chrome bloque les .click() programmatiques qui suivent un confirm/alert.
+  // L'utilisateur a déjà cliqué sur le bouton "Lancer la migration", ce qui suffit comme geste.
   
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.json';
   input.multiple = true;
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
+    document.body.removeChild(input);
+    
     if (!files.length) { console.log('❌ Annulé'); return; }
+    
+    // Confirmation après sélection des fichiers
+    const fileList = files.map(f => '  • ' + f.name).join('\n');
+    if(!confirm(
+      'MIGRATION v71\n\n' +
+      'Fichiers sélectionnés (' + files.length + ') :\n' +
+      fileList + '\n\n' +
+      'Cette action va :\n' +
+      '  1. Télécharger un BACKUP de tes données actuelles\n' +
+      '  2. Remplacer les mois par les versions retraitées\n' +
+      '  3. Charger les rattachements pré-identifiés\n\n' +
+      'Continuer ?'
+    )) {
+      console.log('❌ Annulé après sélection');
+      return;
+    }
     
     // ÉTAPE 1 : Backup automatique
     console.log('📦 Étape 1/4 : backup en cours...');
@@ -5669,8 +5679,8 @@ function lancerMigrationV71() {
     
     // ÉTAPE 2 : Analyse des fichiers
     console.log('📂 Étape 2/4 : analyse des ' + files.length + ' fichiers...');
-    let moisAnnees = [];  // array de mois
-    let rattachements = null; // dict de rattachements
+    let moisAnnees = [];
+    let rattachements = null;
     
     for (const file of files) {
       try {
@@ -5678,11 +5688,9 @@ function lancerMigrationV71() {
         const data = JSON.parse(text);
         
         if(Array.isArray(data)) {
-          // Tableau = données mensuelles (XXXX_retraite.json)
           moisAnnees = moisAnnees.concat(data);
           console.log('  ✅ ' + file.name + ' → ' + data.length + ' mois');
         } else if(typeof data === 'object') {
-          // Objet = dictionnaire de rattachements
           rattachements = data;
           console.log('  ✅ ' + file.name + ' → ' + Object.keys(data).length + ' rattachements');
         }
@@ -5729,7 +5737,6 @@ function lancerMigrationV71() {
       const merged = Object.values(map).sort((a,b) => (b.year+b.month).localeCompare(a.year+a.month));
       console.log('  ✅ ' + replaced + ' mois remplacés, ' + added + ' ajoutés');
       
-      // Sauvegarder
       try {
         spStorageSet(STORAGE_KEY, merged);
         console.log('  ✅ Historique sauvegardé');
@@ -5752,15 +5759,13 @@ function lancerMigrationV71() {
       }
     }
     
-    // ÉTAPE 4 : Marquer la migration faite + rappel sync
+    // ÉTAPE 4 : Marquer la migration faite
     console.log('✅ Étape 4/4 : migration terminée');
     localStorage.setItem('migration_v71_done', new Date().toISOString());
     
-    // Cacher le bandeau
     const banner = document.getElementById('migration-banner');
     if(banner) banner.style.display = 'none';
     
-    // Confirmer succès
     const detailsMsg = 
       '✅ MIGRATION TERMINÉE\n\n' +
       (moisAnnees.length > 0 ? '📊 ' + moisAnnees.length + ' mois importés\n' : '') +
@@ -5776,6 +5781,8 @@ function lancerMigrationV71() {
       location.reload();
     }
   };
+  
+  // Déclencher la sélection de fichiers IMMÉDIATEMENT (dans le même tick que le clic utilisateur)
   input.click();
 }
 
