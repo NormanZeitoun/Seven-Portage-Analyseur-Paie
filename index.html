@@ -5489,12 +5489,38 @@ function renderRattachements() {
   }
   empty.style.display = 'none';
   
+  // Tri : NON rattachés en haut (par montant desc), puis rattachés (par montant desc)
+  coutSevenItems.sort((a, b) => {
+    const aRatt = !!getRattachementFor(a.nom);
+    const bRatt = !!getRattachementFor(b.nom);
+    if (aRatt !== bRatt) return aRatt ? 1 : -1; // non rattachés d'abord
+    return b.total - a.total; // puis par montant desc
+  });
+  
   // Liste
   let html = '';
+  let lastWasRattached = false;
+  let firstRattached = true;
   coutSevenItems.forEach((item, idx) => {
     const rattachedKey = getRattachementFor(item.nom);
     const rattachedName = rattachedKey ? findNameForRattachKey(rattachedKey, allConsultants) : null;
     const isRattached = !!rattachedKey;
+    
+    // Séparateur visuel quand on passe de "à rattacher" à "déjà rattachés"
+    if (isRattached && firstRattached) {
+      // Vérifier s'il y avait des non-rattachés avant (= s'il y a une transition)
+      const hadPending = idx > 0 && coutSevenItems.slice(0, idx).some(x => !getRattachementFor(x.nom));
+      if (hadPending) {
+        html += `
+          <div style="display:flex;align-items:center;gap:10px;margin:16px 0 4px;padding:6px 4px;border-bottom:1px dashed var(--border)">
+            <span style="font-size:11px;font-weight:600;color:var(--ok);text-transform:uppercase;letter-spacing:.05em">✅ Déjà rattachés</span>
+            <span style="flex:1;height:1px"></span>
+          </div>
+        `;
+      }
+      firstRattached = false;
+    }
+    lastWasRattached = isRattached;
     
     // Détails compacts mois
     const moisStr = item.items.map(i => `${i.year.slice(2)}-${i.month}`).join(', ');
@@ -6893,7 +6919,7 @@ function renderSuivi() {
     const data = consultantMap[nom];
     const bg = idx%2===0 ? '' : `style="background:var(--surface2)"`;
     let row = `<tr ${bg}>`;
-    row += `<td style="font-weight:600;font-size:13px;position:sticky;left:0;background:${idx%2===0?'var(--surface)':'var(--surface2)'};z-index:1">${nom}</td>`;
+    row += `<td style="font-weight:600;font-size:13px;position:sticky;left:0;background:${idx%2===0?'var(--surface)':'var(--surface2)'};z-index:1"><a href="javascript:void(0)" onclick="openFicheConsultant('${norm(nom).replace(/'/g,"\\'")}')" style="color:var(--brand);text-decoration:none;cursor:pointer" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${nom}</a></td>`;
 
     let sumMarge=0, sumPct=0, nMois=0;
     colMois.forEach(m => {
