@@ -1168,6 +1168,60 @@ select {
     <div style="padding:12px 16px" id="pil-alertes"></div>
   </details>
 
+  <!-- ======== VUE INVESTISSEUR ======== -->
+  <details style="background:var(--surface);border:1.5px solid var(--brand);border-radius:12px;overflow:hidden;margin-top:16px" id="pil-investisseur-details">
+    <summary style="padding:14px 16px;cursor:pointer;font-size:14px;font-weight:700;background:linear-gradient(135deg,#7343EE,#4B36EC);color:white;user-select:none">
+      💼 Métriques
+    </summary>
+    <div style="padding:18px 16px" id="pil-investisseur-content">
+
+      <!-- Bloc 1 : Évolution CA + marge 4 ans -->
+      <div class="pil-card" style="margin-bottom:14px">
+        <div class="pil-card-title">📈 Évolution CA &amp; Marge — vue pluriannuelle</div>
+        <div class="pil-card-sub">Croissance du chiffre d'affaires et de la marge sur l'ensemble des années</div>
+        <div style="overflow-x:auto"><table id="pil-inv-evol" style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:560px"></table></div>
+      </div>
+
+      <!-- Bloc 2 + 3 : Concentration client + Rétention -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div class="pil-card">
+          <div class="pil-card-title">🎯 Concentration client</div>
+          <div class="pil-card-sub">Poids des plus gros clients dans le CA (risque de dépendance)</div>
+          <div id="pil-inv-concentration"></div>
+        </div>
+        <div class="pil-card">
+          <div class="pil-card-title">🔄 Rétention consultants</div>
+          <div class="pil-card-sub">% de portés actifs d'une année conservés l'année suivante</div>
+          <div style="overflow-x:auto"><table id="pil-inv-retention" style="width:100%;border-collapse:collapse;font-size:12.5px"></table></div>
+        </div>
+      </div>
+
+      <!-- Bloc 4 + 5 : TJM + Efficacité -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div class="pil-card">
+          <div class="pil-card-title">💶 TJM moyen &amp; tendance</div>
+          <div class="pil-card-sub">Taux journalier moyen facturé par année</div>
+          <div style="overflow-x:auto"><table id="pil-inv-tjm" style="width:100%;border-collapse:collapse;font-size:12.5px"></table></div>
+        </div>
+        <div class="pil-card">
+          <div class="pil-card-title">⚙️ Efficacité — CA par employé interne</div>
+          <div class="pil-card-sub">CA annuel rapporté à l'effectif interne</div>
+          <div id="pil-inv-efficacite"></div>
+        </div>
+      </div>
+
+      <!-- Bloc 6 : Répartition secteur/métier -->
+      <div class="pil-card">
+        <div class="pil-card-title">🏢 Répartition par secteur / métier</div>
+        <div class="pil-card-sub">Diversification du portefeuille (année sélectionnée)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div style="overflow-x:auto"><table id="pil-inv-secteur" style="width:100%;border-collapse:collapse;font-size:12px"></table></div>
+          <div style="overflow-x:auto"><table id="pil-inv-metier" style="width:100%;border-collapse:collapse;font-size:12px"></table></div>
+        </div>
+      </div>
+    </div>
+  </details>
+
   <!-- Vue globale toutes années -->
   <div id="pil-global" style="display:none;margin-top:24px">
     <div style="font-size:13px;font-weight:700;margin-bottom:16px;color:var(--text)">Évolution annuelle</div>
@@ -1745,6 +1799,7 @@ select {
 <div id="fid-clients" class="fid-pane">
 <div id="fid-cli-content">
   <div class="fid-kpis" id="fid-cli-kpis"></div>
+  <div id="fid-cli-repartition" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px"></div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
     <div style="font-size:13px;font-weight:700">Historique clients</div>
     <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;width:100%" id="fid-cli-seg-filters">
@@ -3266,6 +3321,90 @@ function getCliSegment(anciennete) {
   return 'historique';
 }
 
+// ===== RÉPARTITION CLIENTS PAR NOMBRE DE PORTÉS =====
+function renderFidCliRepartition(data) {
+  var el = document.getElementById('fid-cli-repartition');
+  if(!el) return;
+
+  // --- Tableau 1 : par nombre de PORTÉS ACTIFS ---
+  // Tranches : 1 / 2 / 3-5 / 6-10 / >10
+  var tranchesActifs = [
+    {lbl:'1 porté actif',        test:function(n){return n===1;}},
+    {lbl:'2 portés actifs',      test:function(n){return n===2;}},
+    {lbl:'3 à 5 portés actifs',  test:function(n){return n>=3 && n<=5;}},
+    {lbl:'6 à 10 portés actifs', test:function(n){return n>=6 && n<=10;}},
+    {lbl:'Plus de 10 portés actifs', test:function(n){return n>10;}}
+  ];
+  // On ne compte que les clients ayant au moins 1 porté actif
+  var clientsActifs = data.filter(function(c){ return c.portesActifs > 0; });
+  var totalClientsActifs = clientsActifs.length;
+
+  // --- Tableau 2 : par TOTAL PORTÉS (historique) ---
+  // Tranches : 1-5 / 6-10 / 11-20 / >20  (pas de chevauchement)
+  var tranchesTotaux = [
+    {lbl:'1 à 5 portés',    test:function(n){return n>=1 && n<=5;}},
+    {lbl:'6 à 10 portés',   test:function(n){return n>=6 && n<=10;}},
+    {lbl:'11 à 20 portés',  test:function(n){return n>=11 && n<=20;}},
+    {lbl:'Plus de 20 portés', test:function(n){return n>20;}}
+  ];
+  var totalClients = data.length;
+
+  function buildTable(titre, tranches, items, valFn, totalCount, sousTitre) {
+    var rows = tranches.map(function(t){
+      var matched = items.filter(function(c){ return t.test(valFn(c)); });
+      var nb = matched.length;
+      var pct = totalCount>0 ? (nb/totalCount*100) : 0;
+      var portesSum = matched.reduce(function(s,c){ return s+valFn(c); }, 0);
+      return '<tr>'+
+        '<td style="padding:7px 10px;font-size:12.5px">'+t.lbl+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;font-weight:700;font-family:var(--mono);color:var(--brand)">'+nb+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;font-family:var(--mono);font-size:12px">'+pct.toFixed(1)+'%</td>'+
+        '<td style="padding:7px 10px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--muted)">'+portesSum+'</td>'+
+      '</tr>';
+    }).join('');
+    return '<div style="flex:1;min-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-xs)">'+
+      '<div style="padding:10px 14px;background:#F5F3FF;border-bottom:1px solid var(--border)">'+
+        '<div style="font-size:12px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:.04em">'+titre+'</div>'+
+        '<div style="font-size:11px;color:var(--muted);margin-top:2px">'+sousTitre+'</div>'+
+      '</div>'+
+      '<table style="width:100%;border-collapse:collapse">'+
+        '<thead><tr style="border-bottom:1.5px solid var(--border)">'+
+          '<th style="padding:6px 10px;text-align:left;font-size:9.5px;text-transform:uppercase;color:var(--muted);letter-spacing:.05em">Tranche</th>'+
+          '<th style="padding:6px 10px;text-align:right;font-size:9.5px;text-transform:uppercase;color:var(--muted);letter-spacing:.05em">Clients</th>'+
+          '<th style="padding:6px 10px;text-align:right;font-size:9.5px;text-transform:uppercase;color:var(--muted);letter-spacing:.05em">%</th>'+
+          '<th style="padding:6px 10px;text-align:right;font-size:9.5px;text-transform:uppercase;color:var(--muted);letter-spacing:.05em">Σ Portés</th>'+
+        '</tr></thead>'+
+        '<tbody>'+rows+'</tbody>'+
+        '<tfoot><tr style="border-top:1.5px solid var(--border);background:var(--surface2)">'+
+          '<td style="padding:7px 10px;font-size:12px;font-weight:700">Total</td>'+
+          '<td style="padding:7px 10px;text-align:right;font-weight:700;font-family:var(--mono)">'+totalCount+'</td>'+
+          '<td style="padding:7px 10px;text-align:right;font-family:var(--mono);font-size:12px">100%</td>'+
+          '<td style="padding:7px 10px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--muted)">'+
+            items.reduce(function(s,c){return s+valFn(c);},0)+'</td>'+
+        '</tr></tfoot>'+
+      '</table>'+
+    '</div>';
+  }
+
+  el.innerHTML =
+    buildTable(
+      '📊 Clients par portés actifs',
+      tranchesActifs,
+      clientsActifs,
+      function(c){ return c.portesActifs; },
+      totalClientsActifs,
+      totalClientsActifs+' client'+(totalClientsActifs>1?'s':'')+' avec au moins 1 porté actif'
+    ) +
+    buildTable(
+      '📈 Clients par total portés (historique)',
+      tranchesTotaux,
+      data,
+      function(c){ return c.portesTotaux; },
+      totalClients,
+      totalClients+' client'+(totalClients>1?'s':'')+' au total'
+    );
+}
+
 function renderFideliteClients() {
   var cc = document.getElementById('fid-cli-content');
   if(cc && cc.style.display === 'none') cc.style.display = 'block';
@@ -3326,6 +3465,9 @@ function renderFideliteClients() {
       el.addEventListener('click', function(){ window[el.getAttribute('data-fn')](); });
     });
   }
+
+  // ===== TABLEAUX DE RÉPARTITION =====
+  renderFidCliRepartition(data);
 
   // Tableau
   var tbody = document.getElementById('fid-cli-tbody');
@@ -8486,6 +8628,238 @@ function buildDashboardGlobal(h) {
   }
 }
 
+// ======== VUE INVESTISSEUR ========
+function buildVueInvestisseur(h, selectedYear) {
+  if(!Array.isArray(h) || !h.length) return;
+  var euro = function(n){ return Math.round(n).toLocaleString('fr-FR')+' €'; };
+  var years = [...new Set(h.map(d=>d.year))].sort();
+
+  // ===== BLOC 1 : Évolution CA + Marge pluriannuelle =====
+  var evolEl = document.getElementById('pil-inv-evol');
+  if(evolEl) {
+    var rowsEvol = '';
+    var prevCA = null;
+    years.forEach(function(y){
+      var yd = h.filter(d=>d.year===y);
+      var ca=0, cout=0, sw=0, av=0;
+      yd.forEach(function(d){
+        d.results.filter(r=>r.type==='matched').forEach(function(r){
+          ca += r.facture||0; cout += r.coutPaie||0;
+          sw += r.swile||0; av += r.avantages||0;
+        });
+      });
+      var coutTotal = cout + sw + av;
+      var marge = ca - coutTotal;
+      var margePct = ca>0 ? (marge/ca*100) : 0;
+      var croissance = prevCA!==null && prevCA>0 ? ((ca-prevCA)/prevCA*100) : null;
+      prevCA = ca;
+      var crStr = croissance!==null
+        ? '<span style="color:'+(croissance>=0?'var(--ok)':'var(--danger)')+';font-weight:600">'+(croissance>=0?'+':'')+croissance.toFixed(0)+'%</span>'
+        : '<span style="color:var(--muted)">—</span>';
+      var mc = margePct<0?'var(--danger)':margePct<4?'var(--warn)':'var(--ok)';
+      rowsEvol += '<tr style="border-bottom:1px solid var(--border)">'+
+        '<td style="padding:7px 9px;font-weight:700">'+y+'</td>'+
+        '<td style="padding:7px 9px;text-align:right;font-family:var(--mono)">'+euro(ca)+'</td>'+
+        '<td style="padding:7px 9px;text-align:right">'+crStr+'</td>'+
+        '<td style="padding:7px 9px;text-align:right;font-family:var(--mono)">'+euro(coutTotal)+'</td>'+
+        '<td style="padding:7px 9px;text-align:right;font-family:var(--mono);color:'+mc+';font-weight:600">'+euro(marge)+'</td>'+
+        '<td style="padding:7px 9px;text-align:right;font-family:var(--mono);color:'+mc+';font-weight:700">'+margePct.toFixed(1)+'%</td>'+
+      '</tr>';
+    });
+    evolEl.innerHTML =
+      '<thead><tr style="border-bottom:1.5px solid var(--border)">'+
+        '<th style="padding:6px 9px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--text2)">Année</th>'+
+        '<th style="padding:6px 9px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text2)">CA</th>'+
+        '<th style="padding:6px 9px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text2)">Croissance</th>'+
+        '<th style="padding:6px 9px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text2)">Coût global</th>'+
+        '<th style="padding:6px 9px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text2)">Marge €</th>'+
+        '<th style="padding:6px 9px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text2)">Marge %</th>'+
+      '</tr></thead><tbody>'+rowsEvol+'</tbody>';
+  }
+
+  // ===== BLOC 2 : Concentration client =====
+  // On prend l'année sélectionnée (ou toutes années)
+  var concEl = document.getElementById('pil-inv-concentration');
+  if(concEl) {
+    var hConc = (selectedYear==='all') ? h : h.filter(d=>d.year===selectedYear);
+    var caByClient = {};
+    hConc.forEach(function(d){
+      d.results.filter(r=>r.type==='matched').forEach(function(r){
+        var cli = (r.client||'').trim() || '(non renseigné)';
+        caByClient[cli] = (caByClient[cli]||0) + (r.facture||0);
+      });
+    });
+    var clientArr = Object.entries(caByClient).map(function(e){return {nom:e[0],ca:e[1]};})
+      .filter(function(c){return c.ca>0;})
+      .sort(function(a,b){return b.ca-a.ca;});
+    var caGlobal = clientArr.reduce(function(s,c){return s+c.ca;},0);
+
+    function topPct(n){
+      var top = clientArr.slice(0,n).reduce(function(s,c){return s+c.ca;},0);
+      return caGlobal>0 ? (top/caGlobal*100) : 0;
+    }
+    // Nombre de clients pour 80% du CA (Pareto)
+    var cum=0, nPareto=0;
+    for(var i=0;i<clientArr.length;i++){ cum+=clientArr[i].ca; nPareto++; if(cum/caGlobal>=0.8) break; }
+
+    var top1=topPct(1), top5=topPct(5), top10=topPct(10);
+    function riskColor(p){ return p>50?'var(--danger)':p>33?'var(--warn)':'var(--ok)'; }
+
+    concEl.innerHTML =
+      '<div style="display:flex;flex-direction:column;gap:7px">'+
+        '<div style="display:flex;justify-content:space-between;font-size:12.5px"><span>Nombre de clients</span><b>'+clientArr.length+'</b></div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:12.5px"><span>Top 1 client</span><b style="color:'+riskColor(top1)+'">'+top1.toFixed(1)+'% du CA</b></div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:12.5px"><span>Top 5 clients</span><b style="color:'+riskColor(top5)+'">'+top5.toFixed(1)+'% du CA</b></div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:12.5px"><span>Top 10 clients</span><b style="color:'+riskColor(top10)+'">'+top10.toFixed(1)+'% du CA</b></div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:12.5px;border-top:1px solid var(--border);padding-top:7px"><span>Clients = 80% du CA</span><b>'+nPareto+' clients</b></div>'+
+        '<div style="font-size:10.5px;color:var(--text2);margin-top:4px;line-height:1.4">Plus le Top 5/10 est bas, moins l\'entreprise dépend de quelques clients — un point positif pour un acheteur.</div>'+
+      '</div>';
+  }
+
+  // ===== BLOC 3 : Rétention consultants =====
+  var retEl = document.getElementById('pil-inv-retention');
+  if(retEl) {
+    // Set des portés actifs par année
+    var portesByYear = {};
+    years.forEach(function(y){
+      var s = new Set();
+      h.filter(d=>d.year===y).forEach(function(d){
+        d.results.filter(r=>r.type==='matched' && (r.facture||0)>0).forEach(function(r){
+          s.add(norm(r.nom));
+        });
+      });
+      portesByYear[y] = s;
+    });
+    var rowsRet = '';
+    for(var yi=1; yi<years.length; yi++){
+      var prevY = years[yi-1], curY = years[yi];
+      var prevSet = portesByYear[prevY], curSet = portesByYear[curY];
+      var conserves = 0;
+      prevSet.forEach(function(n){ if(curSet.has(n)) conserves++; });
+      var tauxRet = prevSet.size>0 ? (conserves/prevSet.size*100) : 0;
+      var rc = tauxRet>=40?'var(--ok)':tauxRet>=25?'var(--warn)':'var(--danger)';
+      rowsRet += '<tr style="border-bottom:1px solid var(--border)">'+
+        '<td style="padding:7px 9px">'+prevY+' → '+curY+'</td>'+
+        '<td style="padding:7px 9px;text-align:right;font-family:var(--mono)">'+prevSet.size+'</td>'+
+        '<td style="padding:7px 9px;text-align:right;font-family:var(--mono)">'+conserves+'</td>'+
+        '<td style="padding:7px 9px;text-align:right;font-family:var(--mono);font-weight:700;color:'+rc+'">'+tauxRet.toFixed(0)+'%</td>'+
+      '</tr>';
+    }
+    retEl.innerHTML =
+      '<thead><tr style="border-bottom:1.5px solid var(--border)">'+
+        '<th style="padding:6px 9px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--text2)">Période</th>'+
+        '<th style="padding:6px 9px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text2)">Portés N</th>'+
+        '<th style="padding:6px 9px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text2)">Conservés</th>'+
+        '<th style="padding:6px 9px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text2)">Rétention</th>'+
+      '</tr></thead><tbody>'+(rowsRet||'<tr><td colspan="4" style="padding:10px;text-align:center;color:var(--text2)">Besoin de 2 années minimum</td></tr>')+'</tbody>';
+  }
+
+  // ===== BLOC 4 : TJM moyen & tendance =====
+  var tjmEl = document.getElementById('pil-inv-tjm');
+  if(tjmEl) {
+    var rowsTjm = '';
+    var prevTjm = null;
+    years.forEach(function(y){
+      var tjms = [];
+      h.filter(d=>d.year===y).forEach(function(d){
+        d.results.filter(r=>r.type==='matched' && (r.tjm||0)>0).forEach(function(r){
+          tjms.push(r.tjm);
+        });
+      });
+      var moy = tjms.length ? tjms.reduce(function(s,v){return s+v;},0)/tjms.length : 0;
+      var evol = prevTjm!==null && prevTjm>0 ? ((moy-prevTjm)/prevTjm*100) : null;
+      prevTjm = moy;
+      var evStr = evol!==null
+        ? '<span style="color:'+(evol>=0?'var(--ok)':'var(--danger)')+';font-weight:600">'+(evol>=0?'+':'')+evol.toFixed(1)+'%</span>'
+        : '<span style="color:var(--muted)">—</span>';
+      rowsTjm += '<tr style="border-bottom:1px solid var(--border)">'+
+        '<td style="padding:7px 9px;font-weight:700">'+y+'</td>'+
+        '<td style="padding:7px 9px;text-align:right;font-family:var(--mono)">'+Math.round(moy)+' €</td>'+
+        '<td style="padding:7px 9px;text-align:right">'+evStr+'</td>'+
+        '<td style="padding:7px 9px;text-align:right;font-family:var(--mono);color:var(--text2)">'+tjms.length+'</td>'+
+      '</tr>';
+    });
+    tjmEl.innerHTML =
+      '<thead><tr style="border-bottom:1.5px solid var(--border)">'+
+        '<th style="padding:6px 9px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--text2)">Année</th>'+
+        '<th style="padding:6px 9px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text2)">TJM moyen</th>'+
+        '<th style="padding:6px 9px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text2)">Évolution</th>'+
+        '<th style="padding:6px 9px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text2)">Mesures</th>'+
+      '</tr></thead><tbody>'+rowsTjm+'</tbody>';
+  }
+
+  // ===== BLOC 5 : Efficacité — CA par employé interne =====
+  var effEl = document.getElementById('pil-inv-efficacite');
+  if(effEl) {
+    var rowsEff = '';
+    years.forEach(function(y){
+      var yd = h.filter(d=>d.year===y);
+      var ca = 0;
+      var internesSet = new Set();
+      yd.forEach(function(d){
+        d.results.filter(r=>r.type==='matched').forEach(function(r){ ca += r.facture||0; });
+        d.results.filter(r=>r.type==='internal').forEach(function(r){ internesSet.add(norm(r.nom)); });
+      });
+      var nInt = internesSet.size;
+      var caParInt = nInt>0 ? ca/nInt : 0;
+      rowsEff += '<tr style="border-bottom:1px solid var(--border)">'+
+        '<td style="padding:7px 9px;font-weight:700">'+y+'</td>'+
+        '<td style="padding:7px 9px;text-align:right;font-family:var(--mono)">'+nInt+'</td>'+
+        '<td style="padding:7px 9px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--brand)">'+euro(caParInt)+'</td>'+
+      '</tr>';
+    });
+    effEl.innerHTML =
+      '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'+
+        '<thead><tr style="border-bottom:1.5px solid var(--border)">'+
+          '<th style="padding:6px 9px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--text2)">Année</th>'+
+          '<th style="padding:6px 9px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text2)">Effectif interne</th>'+
+          '<th style="padding:6px 9px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text2)">CA / interne</th>'+
+        '</tr></thead><tbody>'+rowsEff+'</tbody>'+
+      '</table>'+
+      '<div style="font-size:10.5px;color:var(--text2);margin-top:8px;line-height:1.4">Ratio d\'efficacité : plus le CA par employé interne est élevé, plus la structure est productive et scalable.</div>';
+  }
+
+  // ===== BLOC 6 : Répartition secteur / métier =====
+  var hRep = (selectedYear==='all') ? h : h.filter(d=>d.year===selectedYear);
+  function repTable(elId, champ, titre) {
+    var elx = document.getElementById(elId);
+    if(!elx) return;
+    var byKey = {};
+    hRep.forEach(function(d){
+      d.results.filter(r=>r.type==='matched').forEach(function(r){
+        var k = (r[champ]||'').trim() || '(non renseigné)';
+        if(!byKey[k]) byKey[k] = {ca:0, set:new Set()};
+        byKey[k].ca += r.facture||0;
+        if((r.facture||0)>0) byKey[k].set.add(norm(r.nom));
+      });
+    });
+    var arr = Object.entries(byKey).map(function(e){return {nom:e[0],ca:e[1].ca,n:e[1].set.size};})
+      .filter(function(x){return x.ca>0;})
+      .sort(function(a,b){return b.ca-a.ca;});
+    var totCA = arr.reduce(function(s,x){return s+x.ca;},0);
+    var rows = arr.slice(0,8).map(function(x){
+      var pct = totCA>0?(x.ca/totCA*100):0;
+      return '<tr style="border-bottom:1px solid var(--border)">'+
+        '<td style="padding:6px 8px">'+x.nom+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;font-family:var(--mono)">'+x.n+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;font-family:var(--mono)">'+euro(x.ca)+'</td>'+
+        '<td style="padding:6px 8px;text-align:right;font-family:var(--mono);font-weight:600">'+pct.toFixed(1)+'%</td>'+
+      '</tr>';
+    }).join('');
+    elx.innerHTML =
+      '<thead><tr style="border-bottom:1.5px solid var(--border)">'+
+        '<th colspan="4" style="padding:6px 8px;text-align:left;font-size:10.5px;text-transform:uppercase;color:var(--brand);font-weight:700">'+titre+'</th>'+
+      '</tr><tr style="border-bottom:1px solid var(--border)">'+
+        '<th style="padding:5px 8px;text-align:left;font-size:9.5px;text-transform:uppercase;color:var(--text2)">'+(champ==='client'?'Client':titre.split(' ')[2]||'Catégorie')+'</th>'+
+        '<th style="padding:5px 8px;text-align:right;font-size:9.5px;text-transform:uppercase;color:var(--text2)">Portés</th>'+
+        '<th style="padding:5px 8px;text-align:right;font-size:9.5px;text-transform:uppercase;color:var(--text2)">CA</th>'+
+        '<th style="padding:5px 8px;text-align:right;font-size:9.5px;text-transform:uppercase;color:var(--text2)">%</th>'+
+      '</tr></thead><tbody>'+(rows||'<tr><td colspan="4" style="padding:10px;text-align:center;color:var(--text2)">Aucune donnée</td></tr>')+'</tbody>';
+  }
+  repTable('pil-inv-secteur', 'client', 'Top 8 clients');
+  repTable('pil-inv-metier', 'metier', 'Top 8 métiers');
+}
+
 function buildDashboard(){
   const year = document.getElementById('pil-year').value;
 
@@ -8493,12 +8867,13 @@ function buildDashboard(){
 
   // Mode vue globale
   const globalEl = document.getElementById('pil-global');
-  const normalSections = document.querySelectorAll('#pil-kpis, #pil-proj, #tab-pilotage .pil-card:not(.pil-params)');
+  const normalSections = document.querySelectorAll('#pil-kpis, #pil-proj, #tab-pilotage .pil-card:not(.pil-params):not(#pil-investisseur-content .pil-card)');
   if(year === 'all') {
     if(globalEl) globalEl.style.display = 'block';
     normalSections.forEach(el=>{ if(el) el.style.display='none'; });
     document.getElementById('pil-subtitle').textContent = 'Vue globale · '+h.length+' mois · '+(h.length?[...new Set(h.map(d=>d.year))].sort().join(', '):'');
     buildDashboardGlobal(h);
+    try { buildVueInvestisseur(h, 'all'); } catch(e) { console.warn('Vue investisseur:', e); }
     return;
   }
   if(globalEl) globalEl.style.display = 'none';
@@ -8651,6 +9026,9 @@ function buildDashboard(){
 
   // ── Graphiques ──
   pilDrawCharts(monthly, months, objM, entrants, sortants, cmap, MFS);
+
+  // ── Vue investisseur ──
+  try { buildVueInvestisseur(h, year); } catch(e) { console.warn('Vue investisseur:', e); }
 }
 
 function pilDrawCharts(monthly, months, objM, entrants, sortants, cmap, MFS){
