@@ -5428,6 +5428,30 @@ function exportRef() {
 // ======== DICTIONNAIRE DE CORRECTIONS PERSISTANT ========
 const DICT_KEY = 'seven_portage_corrections_v1';
 
+// Socle de corrections par défaut — réinjecté automatiquement même si OneDrive efface le dico.
+// Ces 19 corrections ont été validées manuellement et ne doivent jamais être perdues.
+const DICT_DEFAULTS = {
+  'combechristophe': 'Chirstophe COMBE',
+  'markovicstansilas': 'Stanislas MARKOVIC',
+  'ngindumuanzaserge': 'Edgard Herve MVOGO',
+  'savadorinalexandru': 'Dorin-Alexendru SAVA',
+  'mvogoedgarherve': 'Edgard Herve MVOGO',
+  'milleretmickael': 'Michael MILLERET',
+  'sachchithananthamvirginie': 'Virgine SACHCHITHANANTHAM',
+  'aminatousabremanon': 'Manon AMINATOU SARBE',
+  'glipkodavid': 'David GLIKPO',
+  'boumazawasilla': 'Wassila BOUMAZA',
+  'bouhdidmeher': 'Maher BOUHDID',
+  'ariouamohamedamine': 'Mohammed Amine ARIOUA',
+  'patrikainenfanny': 'Elise PATRIKAINEN',
+  'aslounimohamedamine': 'Mohammed Amine ASLOUNI',
+  'khaddaryoussef': 'Youssef KHADDHAR',
+  'sibouhchaimae': 'Chaimae SIBOUIH',
+  'rennuccipauline': 'Pauline RENUCCI',
+  'vergersandrine': 'Sandrine DELAET',
+  'boualloumajdoulineneebendya': 'Majdouline BENDYA'
+};
+
 function loadDict() {
   // Utilise spStorageGet qui sait gérer le format LZ-String compressé
   // (sinon JSON.parse plante sur les anciennes données compressées et le dict apparaît vide).
@@ -5435,10 +5459,15 @@ function loadDict() {
     var d = (typeof spStorageGet === 'function')
       ? spStorageGet(DICT_KEY)
       : JSON.parse(localStorage.getItem(DICT_KEY)||'{}');
-    return (d && typeof d === 'object') ? d : {};
+    var stored = (d && typeof d === 'object') ? d : {};
+    // Fusion : les corrections stockées priment, mais on garantit la présence des défauts.
+    var merged = {};
+    Object.keys(DICT_DEFAULTS).forEach(function(k){ merged[k] = DICT_DEFAULTS[k]; });
+    Object.keys(stored).forEach(function(k){ merged[k] = stored[k]; });
+    return merged;
   } catch(e) {
     console.warn('[loadDict] erreur :', e);
-    return {};
+    return Object.assign({}, DICT_DEFAULTS);
   }
 }
 function saveDict(dict) {
@@ -5759,7 +5788,7 @@ function recalculerTous() {
     histo.forEach(monthData => {
       const results = monthData.results || [];
       const newResults = [];
-      const toMerge = {}; // clé consultant cible → {sw, av} à ajouter
+      const toMerge = {}; // clé consultant cible → {sw, av, nomOriginal} à ajouter
       
       // 1. Parcourir et séparer lignes cout_seven rattachables vs autres
       results.forEach(r => {
@@ -5767,7 +5796,7 @@ function recalculerTous() {
         const rattachedKey = getRattachementFor(r.nom);
         if(!rattachedKey) { newResults.push(r); return; }
         // Rattaché : on prépare le merge
-        if(!toMerge[rattachedKey]) toMerge[rattachedKey] = {sw:0, av:0};
+        if(!toMerge[rattachedKey]) toMerge[rattachedKey] = {sw:0, av:0, nomOriginal:r.nom};
         toMerge[rattachedKey].sw += (r.swile||0);
         toMerge[rattachedKey].av += (r.avantages||0);
         totalLines++;
@@ -5789,9 +5818,13 @@ function recalculerTous() {
           targetLine.margePct = targetLine.facture > 0 ? (targetLine.margeEur / targetLine.facture) * 100 : null;
           totalModified++;
         } else {
-          // Pas trouvé : on remet une ligne cout_seven sous le nom cible
+          // Pas trouvé : le consultant n'est pas en paie ce mois-là (avantage "en avance").
+          // On garde une ligne cout_seven avec le NOM PROPRE du consultant cible
+          // (cherché dans tout l'historique), sinon le nom original de la ligne.
+          const nomPropre = findNameForRattachKey(targetKey, getAllConsultantsFromHistory())
+                          || amounts.nomOriginal || targetKey;
           newResults.push({
-            nom: targetKey, crmNom: '—',
+            nom: nomPropre, crmNom: '—',
             coutPaie: 0, swile: amounts.sw, avantages: amounts.av,
             coutTotal: amounts.sw + amounts.av,
             facture: 0, margeEur: -(amounts.sw + amounts.av), margePct: null,
@@ -6719,9 +6752,12 @@ function saveToHistory() {
 // Idempotente : peut être ré-exécutée sans effet de bord.
 function migratePaieDifferee() {
   try {
-    var raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return { migratedMonths: 0, migratedRows: 0 };
-    var h = JSON.parse(raw);
+    // Utilise spStorageGet qui sait décompresser le format LZ-String
+    // (un JSON.parse direct planterait sur les données compressées 'LZ:...').
+    var h = (typeof spStorageGet === 'function')
+      ? spStorageGet(STORAGE_KEY)
+      : JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+    if(!h) return { migratedMonths: 0, migratedRows: 0 };
     if(!Array.isArray(h)) return { migratedMonths: 0, migratedRows: 0 };
     var nMonths = 0, nRows = 0, anyChange = false;
     h.forEach(function(moisData) {
@@ -6745,7 +6781,12 @@ function migratePaieDifferee() {
       anyChange = anyChange || changed;
     });
     if(anyChange) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(h));
+      // Resauvegarde via spStorageSet (qui compressera en LZ-String si besoin)
+      if(typeof spStorageSet === 'function') {
+        spStorageSet(STORAGE_KEY, h);
+      } else {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(h));
+      }
       console.log('[migration paie différée] ' + nRows + ' ligne(s) sur ' + nMonths + ' mois mises à jour');
     }
     return { migratedMonths: nMonths, migratedRows: nRows };
@@ -6756,7 +6797,26 @@ function migratePaieDifferee() {
 }
 
 // Auto-init OneDrive au chargement
-if(document.readyState === "loading") { document.addEventListener("DOMContentLoaded", function(){ migratePaieDifferee(); odInit(); tkUpdateBadge(); tkPopulateStaffSelects(); }); } else { migratePaieDifferee(); odInit(); tkUpdateBadge(); tkPopulateStaffSelects(); }
+if(document.readyState === "loading") { document.addEventListener("DOMContentLoaded", function(){ ensureDictDefaults(); migratePaieDifferee(); odInit(); tkUpdateBadge(); tkPopulateStaffSelects(); }); } else { ensureDictDefaults(); migratePaieDifferee(); odInit(); tkUpdateBadge(); tkPopulateStaffSelects(); }
+
+// Garantit que les 19 corrections par défaut sont bien persistées dans le localStorage.
+// Si le dico stocké est incomplet (effacé par une sync OneDrive), on le complète et resauve.
+function ensureDictDefaults() {
+  try {
+    var stored = (typeof spStorageGet === 'function')
+      ? spStorageGet(DICT_KEY)
+      : JSON.parse(localStorage.getItem(DICT_KEY)||'{}');
+    stored = (stored && typeof stored === 'object') ? stored : {};
+    var manque = false;
+    Object.keys(DICT_DEFAULTS).forEach(function(k){
+      if(!(k in stored)) { stored[k] = DICT_DEFAULTS[k]; manque = true; }
+    });
+    if(manque) {
+      saveDict(stored);
+      console.log('[ensureDictDefaults] corrections par défaut réinjectées');
+    }
+  } catch(e) { console.warn('[ensureDictDefaults]', e); }
+}
 
 function renderHistory() {
   let h=[]; try{h=(spStorageGet(STORAGE_KEY) || []);}catch(e){}
