@@ -6510,8 +6510,10 @@ function runAnalysis() {
     const margeEur = m.facture - coutTotal;
     const margePct = coutTotal>0 ? (margeEur/coutTotal)*100 : null;
     let status;
-    // Coût ≤ 120€ → BP à zéro même si matché, jamais en alerte
-    if(coutTotal <= 120 && coutTotal >= 0 && m.facture === 0) status='bp_zero';
+    // Coût entre 0 et 120€ → BP à zéro (consultant inactif/mutuelle), jamais en alerte.
+    // Important : seuls les coûts POSITIFS faibles sont concernés ; un coût négatif (régularisation)
+    // doit suivre le calcul normal de marge et apparaître dans le matching standard.
+    if(coutTotal >= 0 && coutTotal <= 120 && m.facture === 0) status='bp_zero';
     else if(coutTotal > 0 && coutTotal <= 120) status='bp_zero';
     else if(coutTotal===0 || margePct===null) status='no_cost';
     else if(margePct<0)  status='alerte';
@@ -6522,9 +6524,9 @@ function runAnalysis() {
       client:m.client||'',commercial:m.commercial||'',metier:m.metier||'',tjm:m.tjm||0,poste:m.poste||'',chargesPct:m.chargesPct||null});
   });
 
-  // Orphelins paie — séparés en deux : BP à zéro (coût ≤ 120€) et vrais orphelins
+  // Orphelins paie — séparés en deux : BP à zéro (coût POSITIF ≤ 120€) et vrais orphelins
   s.orphanSynth.forEach(o => {
-    if(o.cout <= 120) {
+    if(o.cout >= 0 && o.cout <= 120) {
       results.push({nom:o.label,crmNom:'—',coutPaie:o.cout,swile:0,coutTotal:o.cout,facture:0,margeEur:-o.cout,margePct:null,status:'bp_zero',type:'bp_zero'});
     } else {
       results.push({nom:o.label,crmNom:'—',coutPaie:o.cout,swile:0,coutTotal:o.cout,facture:0,margeEur:-o.cout,margePct:-100,status:'orphan_synth',type:'orphan_synth'});
