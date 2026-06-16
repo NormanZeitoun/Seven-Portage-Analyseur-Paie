@@ -5149,6 +5149,15 @@ function clShowSecteurDetail(secteur, metiers) {
   const card = document.getElementById('cl-secteur-detail-card');
   document.getElementById('cl-secteur-detail-title').textContent = 'Métiers — ' + secteur;
   const color = SECTEUR_COLORS[secteur]||'#9B9890';
+
+  // Mode spécial : Non classifié → afficher les consultants à qualifier
+  if(secteur === 'Non classifié') {
+    renderNonClassifieDetail();
+    card.style.display='block';
+    card.scrollIntoView({behavior:'smooth', block:'nearest'});
+    return;
+  }
+
   const mData = Object.entries(metiers).sort((a,b)=>b[1].ca-a[1].ca);
   document.getElementById('cl-tbl-secteur-detail').innerHTML =
     `<thead><tr><th>Métier</th><th>Consultants</th><th>CA</th><th>Marge €</th><th>Marge %</th></tr></thead><tbody>` +
@@ -5165,6 +5174,212 @@ function clShowSecteurDetail(secteur, metiers) {
     }).join('') + `</tbody>`;
   card.style.display='block';
   card.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+// ── Détail "Non classifié" : liste des consultants à qualifier manuellement
+function renderNonClassifieDetail() {
+  document.getElementById('cl-secteur-detail-title').textContent = 'Consultants à classer manuellement';
+
+  // Récupérer l'année courante de l'écran Analyse Client
+  const yearSel = document.getElementById('cl-year');
+  const yearVal = yearSel ? yearSel.value : 'all';
+
+  // Charger l'historique
+  let h = [];
+  try { h = (spStorageGet(STORAGE_KEY) || []); } catch(e) {}
+  const yd = (yearVal === 'all' || !yearVal) ? h : h.filter(d => d.year === yearVal);
+
+  // Agréger par consultant : nom, postes connus, CA total, marge total, dernier client
+  const posteMap = (typeof buildConsultantPosteMap === 'function') ? buildConsultantPosteMap() : {};
+  const consultants = {};
+  yd.forEach(d => {
+    (d.results||[]).filter(r => r.type === 'matched').forEach(r => {
+      let poste = (r.poste || r.metier || '').trim();
+      // Si pas de poste sur la ligne, chercher dans l'historique global
+      if(!poste && r.nom) {
+        const fromHist = posteMap[r.nom.trim().toUpperCase()];
+        if(fromHist) poste = fromHist.poste;
+      }
+      const cl = classifySecteurMetier(poste);
+      if(cl.secteur !== 'Non classifié' && cl.secteur !== 'Autres') return;
+      const nom = r.nom || '';
+      if(!nom) return;
+      if(!consultants[nom]) {
+        consultants[nom] = { nom, posteSuggere: poste, client: r.client||'', commercial: r.commercial||'', ca:0, marge:0, nMois:0 };
+      } else if(poste && !consultants[nom].posteSuggere) {
+        consultants[nom].posteSuggere = poste;
+      }
+      consultants[nom].ca    += r.facture||0;
+      consultants[nom].marge += r.margeEur||0;
+      consultants[nom].nMois++;
+      if(r.client && !consultants[nom].client) consultants[nom].client = r.client;
+      if(r.commercial && !consultants[nom].commercial) consultants[nom].commercial = r.commercial;
+    });
+  });
+
+  const list = Object.values(consultants).sort((a,b)=>b.ca-a.ca);
+  window._nonClassifList = list;
+
+  // Construire la liste des secteurs et métiers depuis le référentiel
+  const tousSecteurs = new Set();
+  const metiersBySecteur = {};
+  try {
+    (REF_ENTRIES_BASE||[]).forEach(e => {
+      tousSecteurs.add(e.s);
+      if(!metiersBySecteur[e.s]) metiersBySecteur[e.s] = new Set();
+      metiersBySecteur[e.s].add(e.m);
+    });
+  } catch(e){}
+  // Ajouter Non classifié à la liste des secteurs pour qu'il soit dans le select
+  const secteurList = [...tousSecteurs].sort();
+
+  // HTML : tableau avec posteSuggéré, dropdowns secteur/métier, bouton sauver
+  let html = `<thead>
+    <tr>
+      <th>Consultant</th>
+      <th>Poste détecté</th>
+      <th>Client</th>
+      <th class="mono" style="text-align:right">CA</th>
+      <th>Secteur</th>
+      <th>Métier</th>
+      <th></th>
+    </tr>
+  </thead><tbody>`;
+
+  if(list.length === 0) {
+    html += `<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--text2)">Aucun consultant à classer 🎉</td></tr>`;
+  } else {
+    list.forEach((c, i) => {
+      const sectOpts = secteurList.map(s => `<option value="${s}">${s}</option>`).join('');
+      html += `<tr id="ncl-row-${i}" data-nom="${(c.nom||'').replace(/"/g,'&quot;')}">
+        <td style="font-weight:500">${c.nom}<div style="font-size:10.5px;color:var(--text2)">${c.commercial||''}</div></td>
+        <td><input id="ncl-poste-${i}" type="text" value="${(c.posteSuggere||'').replace(/"/g,'&quot;')}" placeholder="(non détecté)" style="width:100%;padding:4px 7px;font-size:11.5px;border:0.5px solid var(--border2);border-radius:4px;font-family:var(--font);box-sizing:border-box"></td>
+        <td style="font-size:11.5px;color:var(--text2)">${c.client||'—'}</td>
+        <td class="mono" style="text-align:right">${Math.round(c.ca).toLocaleString('fr-FR')} €</td>
+        <td><select id="ncl-sect-${i}" onchange="updateNclMetier(${i})" style="padding:3px 6px;font-size:11.5px;border:0.5px solid var(--border2);border-radius:4px;background:var(--surface)"><option value="">—</option>${sectOpts}</select></td>
+        <td><select id="ncl-met-${i}" style="padding:3px 6px;font-size:11.5px;border:0.5px solid var(--border2);border-radius:4px;background:var(--surface);min-width:140px"><option value="">— Choisir secteur d'abord —</option></select></td>
+        <td><button onclick="saveNclClass(${i})" style="font-size:10.5px;padding:4px 9px;background:var(--brand);color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:500">✓ Sauver</button></td>
+      </tr>`;
+    });
+    // Bouton "Tout sauvegarder"
+    html += `<tr><td colspan="7" style="padding:10px;text-align:right">
+      <button onclick="saveAllNclClass()" style="font-size:12px;padding:7px 16px;background:var(--brand);color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:500">✓ Tout sauvegarder</button>
+    </td></tr>`;
+  }
+
+  html += `</tbody>`;
+
+  // Exposer les métiers par secteur pour le onchange
+  window._metiersBySecteur = {};
+  Object.keys(metiersBySecteur).forEach(s => {
+    window._metiersBySecteur[s] = [...metiersBySecteur[s]].sort();
+  });
+
+  document.getElementById('cl-tbl-secteur-detail').innerHTML = html;
+}
+
+// Mettre à jour la liste des métiers selon le secteur choisi
+function updateNclMetier(i) {
+  const sect = document.getElementById(`ncl-sect-${i}`).value;
+  const sel = document.getElementById(`ncl-met-${i}`);
+  if(!sect || !window._metiersBySecteur || !window._metiersBySecteur[sect]) {
+    sel.innerHTML = `<option value="">— Choisir secteur d'abord —</option>`;
+    return;
+  }
+  sel.innerHTML = `<option value="">— Choisir —</option>` +
+    window._metiersBySecteur[sect].map(m => `<option value="${m}">${m}</option>`).join('') +
+    `<option value="__custom__">+ Autre (saisie libre)</option>`;
+}
+
+// Sauver un classement individuel
+function saveNclClass(i) {
+  const list = window._nonClassifList || [];
+  const c = list[i];
+  if(!c) return;
+  const poste = document.getElementById(`ncl-poste-${i}`).value.trim();
+  const secteur = document.getElementById(`ncl-sect-${i}`).value;
+  let metier = document.getElementById(`ncl-met-${i}`).value;
+  if(!poste) { alert('Saisis le poste avant de sauver.'); return; }
+  if(!secteur) { alert('Choisis un secteur.'); return; }
+  if(metier === '__custom__') {
+    metier = prompt('Saisis le métier :') || 'Général';
+  }
+  if(!metier) metier = 'Général';
+
+  // 1. Ajouter au référentiel d'overrides
+  let overrides = JSON.parse(localStorage.getItem('ref_overrides_v1')||'[]');
+  if(!overrides.some(o => normRef(o.p) === normRef(poste))) {
+    overrides.push({ p: poste, pn: normRef(poste), s: secteur, m: metier });
+    localStorage.setItem('ref_overrides_v1', JSON.stringify(overrides));
+    delete _classifyCache[normRef(poste)];
+  }
+
+  // 2. Mettre à jour le poste sur TOUTES les lignes de ce consultant dans le localStorage
+  try {
+    let h = spStorageGet(STORAGE_KEY) || [];
+    let updated = 0;
+    h.forEach(d => {
+      (d.results||[]).forEach(r => {
+        if(r.nom === c.nom && !r.poste) {
+          r.poste = poste;
+          r.metier = poste;
+          updated++;
+        }
+      });
+    });
+    if(updated > 0) spStorageSet(STORAGE_KEY, h);
+  } catch(e) { console.warn(e); }
+
+  // Marquer la ligne comme faite
+  const row = document.getElementById(`ncl-row-${i}`);
+  if(row) {
+    row.style.background = '#E1F5EE';
+    row.style.opacity = '0.7';
+    row.cells[6].innerHTML = `<span style="color:#085041;font-size:11px;font-weight:600">✓ Sauvé</span>`;
+  }
+}
+
+// Sauver toutes les lignes d'un coup
+function saveAllNclClass() {
+  const list = window._nonClassifList || [];
+  let saved = 0, skipped = 0;
+  list.forEach((c, i) => {
+    const poste = document.getElementById(`ncl-poste-${i}`)?.value.trim();
+    const secteur = document.getElementById(`ncl-sect-${i}`)?.value;
+    let metier = document.getElementById(`ncl-met-${i}`)?.value;
+    if(!poste || !secteur) { skipped++; return; }
+    if(metier === '__custom__' || !metier) metier = 'Général';
+
+    // Override
+    let overrides = JSON.parse(localStorage.getItem('ref_overrides_v1')||'[]');
+    if(!overrides.some(o => normRef(o.p) === normRef(poste))) {
+      overrides.push({ p: poste, pn: normRef(poste), s: secteur, m: metier });
+      localStorage.setItem('ref_overrides_v1', JSON.stringify(overrides));
+      delete _classifyCache[normRef(poste)];
+    }
+    // Patch historique
+    try {
+      let h = spStorageGet(STORAGE_KEY) || [];
+      h.forEach(d => {
+        (d.results||[]).forEach(r => {
+          if(r.nom === c.nom && !r.poste) {
+            r.poste = poste;
+            r.metier = poste;
+          }
+        });
+      });
+      spStorageSet(STORAGE_KEY, h);
+    } catch(e) {}
+
+    const row = document.getElementById(`ncl-row-${i}`);
+    if(row) {
+      row.style.background = '#E1F5EE';
+      row.style.opacity = '0.7';
+      row.cells[6].innerHTML = `<span style="color:#085041;font-size:11px;font-weight:600">✓ Sauvé</span>`;
+    }
+    saved++;
+  });
+  alert(`✓ ${saved} consultant${saved>1?'s':''} sauvé${saved>1?'s':''}.${skipped>0?'\n'+skipped+' ignoré'+(skipped>1?'s':'')+' (secteur/poste manquant).':''}\n\nClique "↑ Synchroniser" puis F5 pour voir le résultat.`);
 }
 
 // ── Référentiel : rendu
