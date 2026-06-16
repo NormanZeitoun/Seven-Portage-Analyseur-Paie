@@ -6687,14 +6687,14 @@ function renderTable(results, filter) {
       : `<td class="mono">${r.facture>0?fmt(r.facture)+' €'+(r.factureCompl?` <span style="font-size:10px;color:var(--info)" title="dont ${fmt(r.factureCompl)} € complémentaire">+${fmt(r.factureCompl)}</span>`:''):'—'}</td><td class="mono ${mc}">${fmt(r.margeEur)} €</td><td class="mono ${mc}" style="font-weight:600">${fmtPct(r.margePct)}</td>`;
     return `<tr>
       <td>${nameHtml}</td>
-      <td class="mono">${r.coutPaie>0?fmt(r.coutPaie)+' €':'—'}</td>
+      <td class="mono">${r.coutPaie!==0 && r.coutPaie!=null ? fmt(r.coutPaie)+' €' : '—'}</td>
       <td class="mono" style="color:${(r.swile>0||r.avantages>0)?'var(--text)':'var(--text3)'}">${(()=>{
         const parts=[];
         if(r.swile>0) parts.push(`🍽 ${fmt(r.swile)} €`);
         if(r.avantages>0) parts.push(`🎁 ${fmt(r.avantages)} €`);
         return parts.length ? parts.join('<br>') : '—';
       })()}</td>
-      <td class="mono"><strong>${r.coutTotal>0?fmt(r.coutTotal)+' €':'—'}</strong></td>
+      <td class="mono"><strong>${r.coutTotal!==0 && r.coutTotal!=null ? fmt(r.coutTotal)+' €' : '—'}</strong></td>
       ${factureCell}
       <td><span class="badge ${badgeClass}">${badge}</span></td>
     </tr>`;
