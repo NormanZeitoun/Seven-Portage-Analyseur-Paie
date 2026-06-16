@@ -5005,13 +5005,46 @@ function getClientYearData() {
   }
 }
 
+// ── Construit une map { nom_normalisé → poste } en parcourant TOUT l'historique.
+// Permet de récupérer le poste d'un consultant même sur ses mois où le champ est vide
+// (régularisations, mutuelle, mois de sortie, etc.).
+function buildConsultantPosteMap() {
+  const map = {};
+  try {
+    const h = spStorageGet(STORAGE_KEY) || [];
+    if (!Array.isArray(h)) return map;
+    h.forEach(d => {
+      (d.results || []).forEach(r => {
+        const nom = (r.nom || '').trim();
+        if (!nom) return;
+        const poste = (r.poste || r.metier || '').trim();
+        if (!poste) return;
+        const k = nom.toUpperCase();
+        // On garde le poste le plus récent (mois lexicographiquement plus grand)
+        const yk = (d.year || '') + (d.month || '');
+        if (!map[k] || yk > (map[k]._yk || '')) {
+          map[k] = { poste, _yk: yk };
+        }
+      });
+    });
+  } catch(e) { console.warn('[buildConsultantPosteMap]', e); }
+  return map;
+}
+
 // ── Enrichir les résultats avec secteur/métier depuis le référentiel
 function enrichWithSecteur(results) {
+  // Map consultant → poste (cherché sur TOUS ses mois) pour combler les mois sans poste
+  const posteMap = buildConsultantPosteMap();
   return results.map(r => {
     if(r._secteur) return r; // déjà enrichi
-    const poste = r.poste || r.metier || '';
+    let poste = r.poste || r.metier || '';
+    // Si la ligne n'a pas de poste, on cherche le poste connu sur un autre mois du même consultant
+    if (!poste && r.nom) {
+      const fromHist = posteMap[r.nom.trim().toUpperCase()];
+      if (fromHist) poste = fromHist.poste;
+    }
     const cl = classifySecteurMetier(poste);
-    return {...r, _secteur: cl.secteur, _metier: cl.metier, _conf: cl.confidence};
+    return {...r, _secteur: cl.secteur, _metier: cl.metier, _conf: cl.confidence, _posteResolved: poste};
   });
 }
 
