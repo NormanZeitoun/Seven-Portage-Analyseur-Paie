@@ -3806,13 +3806,14 @@ function openFicheConsultant(normNom) {
 
   var actifs = moisData.filter(function(m){ return m.actif; });
   var inactifs = moisData.filter(function(m){ return !m.actif; });
-  // Mois "perte sèche" : pas de CA, pas paie différée, mais coût réel > seuil mutuelle.
-  // Ces mois représentent une perte réelle à compter dans la marge totale.
+  // Mois "perte sèche / régularisation" : pas de CA, pas paie différée, mais coût RÉEL significatif
+  // (positif OU négatif). Math.abs() permet de capturer aussi les régularisations négatives.
   var pertesSeches = moisData.filter(function(m){
-    return !m.actif && !m.paieDifferee && (m.coutReel > SEUIL_INACTIF);
+    return !m.actif && !m.paieDifferee && (Math.abs(m.coutReel||0) > SEUIL_INACTIF);
   });
   var caTotal    = actifs.reduce(function(s,m){ return s+m.ca; }, 0);
-  // Marge totale = marge des mois actifs MOINS le coût réel des mois "perte sèche"
+  // Marge totale = marge des mois actifs MOINS le coût réel des mois "perte sèche / régul".
+  // Un coût négatif (régularisation) viendra donc ajouter à la marge (gain).
   var margeTotal = actifs.reduce(function(s,m){ return s+m.marge; }, 0)
                  - pertesSeches.reduce(function(s,m){ return s+(m.coutReel||0); }, 0);
   var margePctTot= caTotal > 0 ? (margeTotal/caTotal*100) : 0;
@@ -3884,7 +3885,7 @@ function openFicheConsultant(normNom) {
     // Style "inactif" (opacité+italique) uniquement pour les vrais mois inactifs (mutuelle sans CA),
     // pas pour les paies différées qui sont des mois actifs commercialement.
     var inactifStyle = (!m.actif || m.paieDifferee) ? '' : '';
-    var trStyle = (!m.actif && !(m.coutReel > SEUIL_INACTIF)) ? 'opacity:.5;font-style:italic' : '';
+    var trStyle = (!m.actif && !(Math.abs(m.coutReel||0) > SEUIL_INACTIF)) ? 'opacity:.5;font-style:italic' : '';
     // Tag à côté du mois : "mutuelle" si vrai inactif, "💸 Paie différée" si paie différée
     var moisTag = '';
     if(m.manuelle) {
@@ -3895,16 +3896,21 @@ function openFicheConsultant(normNom) {
       var tagTitle = m.paieDiffereeMutuelle ? 'Mois mutuelle (' + Math.round(m.coutReel) + ' € payés) : marge 100% du CA, coût ignoré pour la fiche' : 'Mois facturé sans paie : marge 100% du CA';
       moisTag = '<span style="font-size:10px;color:var(--brand);background:#ECE6FF;padding:1px 6px;border-radius:6px;margin-left:6px" title="'+tagTitle+'">'+tagLabel+'</span>';
     } else if(!m.actif) {
-      // Distinguer une vraie mutuelle (coût faible) d'une perte sèche (vrai coût sans CA)
-      if(m.coutReel > SEUIL_INACTIF) {
-        moisTag = '<span style="font-size:10px;color:var(--danger);background:#FDECEC;padding:1px 6px;border-radius:6px;margin-left:6px" title="Coût payé sans facturation ce mois-là : perte sèche">⚠️ Sans CA</span>';
+      // Distinguer une vraie mutuelle (coût faible) d'une perte sèche / régularisation (coût significatif sans CA).
+      // On regarde la valeur ABSOLUE pour capturer aussi les coûts négatifs (gains/régul).
+      if(Math.abs(m.coutReel||0) > SEUIL_INACTIF) {
+        if((m.coutReel||0) < 0) {
+          moisTag = '<span style="font-size:10px;color:var(--ok);background:#E6F5EC;padding:1px 6px;border-radius:6px;margin-left:6px" title="Régularisation négative sans facturation : gain net">💚 Régul. (gain)</span>';
+        } else {
+          moisTag = '<span style="font-size:10px;color:var(--danger);background:#FDECEC;padding:1px 6px;border-radius:6px;margin-left:6px" title="Coût payé sans facturation ce mois-là : perte sèche">⚠️ Sans CA</span>';
+        }
       } else {
         moisTag = '<span style="font-size:10px;color:var(--muted);margin-left:5px">mutuelle</span>';
       }
     }
     // Affichage marge : afficher si actif (y compris paie différée),
-    // OU si le mois a un vrai coût sans CA (perte sèche : ni mutuelle ni paie différée).
-    var coutSansCa = !m.actif && !m.paieDifferee && (m.coutReel > SEUIL_INACTIF);
+    // OU si le mois a un coût significatif sans CA (perte sèche OU régularisation négative).
+    var coutSansCa = !m.actif && !m.paieDifferee && (Math.abs(m.coutReel||0) > SEUIL_INACTIF);
     var showMarge = m.actif || coutSansCa;
     // Cellule statut : pour une ligne manuelle, on met une croix de suppression à la place
     var statutCell = '';
@@ -3916,7 +3922,7 @@ function openFicheConsultant(normNom) {
     return '<tr style="'+trStyle+'">'+
       '<td style="font-weight:600;white-space:nowrap">'+moisLabel+moisTag+'</td>'+
       '<td style="text-align:right;font-family:var(--mono)">'+(m.ca>0?Math.round(m.ca).toLocaleString('fr-FR')+' €':'—')+'</td>'+
-      '<td style="text-align:right;font-family:var(--mono)">'+(m.cout>0?Math.round(m.cout).toLocaleString('fr-FR')+' €':'—')+'</td>'+
+      '<td style="text-align:right;font-family:var(--mono)">'+(m.cout!==0 && (m.cout>0 || Math.abs(m.cout)>SEUIL_INACTIF) ? Math.round(m.cout).toLocaleString('fr-FR')+' €' : '—')+'</td>'+
       '<td style="text-align:right;font-family:var(--mono);'+mc2+'">'+(showMarge?Math.round(m.marge).toLocaleString('fr-FR')+' €':'—')+'</td>'+
       '<td style="text-align:right;font-family:var(--mono);font-weight:600;'+mc2+'">'+(showMarge?m.margePct.toFixed(1)+'%':'—')+'</td>'+
       '<td style="text-align:right;font-family:var(--mono)">'+(m.tjm>0?Math.round(m.tjm).toLocaleString('fr-FR')+' €':'—')+'</td>'+
@@ -4007,8 +4013,11 @@ function buildRentData() {
       var margeEff = isPaieDiff ? caEff : (r.margeEur || 0);
       var pctEff   = isPaieDiff ? (caEff > 0 ? 100 : 0) : (r.margePct || 0);
 
-      // NOUVELLE RÈGLE : inactif = pas de facture du tout. Le coût ne décide plus.
-      if(fact === 0) {
+      // NOUVELLE RÈGLE : inactif = pas de facture ET pas de coût significatif.
+      // Un mois sans CA mais avec un coût > 250€ (perte sèche) OU < -250€ (régularisation/gain)
+      // est considéré actif au sens "à compter dans la rentabilité totale du consultant".
+      var coutSignif = Math.abs(coutTotal||0) > SEUIL_INACTIF;
+      if(fact === 0 && !coutSignif) {
         c.moisInactifs.push(moisKey);
       } else {
         c.moisActifs.push({
