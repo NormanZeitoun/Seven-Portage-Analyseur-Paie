@@ -5042,6 +5042,8 @@ function renderClientSecteurs(yd1) {
   });
   const sData = Object.values(sMap).sort((a,b)=>b.ca-a.ca);
   const totCA = sData.reduce((s,d)=>s+d.ca, 0);
+  // Exposer en global pour le bouton "Détail" qui doit récupérer les métiers d'un secteur
+  window._sectDataCache = sData;
 
   // Donut répartition portés
   if(_clCharts['sect-donut']) _clCharts['sect-donut'].destroy();
@@ -5102,8 +5104,8 @@ function renderClientSecteurs(yd1) {
         <td class="mono" style="color:var(--text2)">${partCA}%</td>
         <td class="mono">${Math.round(s.marge).toLocaleString('fr-FR')} €</td>
         <td class="mono" style="${mc}">${mp.toFixed(1)}%</td>
-        <td><button data-sect="${s.secteur}" data-sid="s${i}"
-          onclick="clShowSecteurDetail(this.dataset.sect, window['_sectData_s'+this.dataset.sid.slice(1)])"
+        <td><button data-sect="${s.secteur}" data-sidx="${i}"
+          onclick="clShowSecteurDetail(this.dataset.sect, (window._sectDataCache && window._sectDataCache[parseInt(this.dataset.sidx)] && window._sectDataCache[parseInt(this.dataset.sidx)].metiers) || {})"
           style="font-size:10px;padding:2px 8px;border:0.5px solid var(--border2);border-radius:4px;cursor:pointer;background:none">
           Détail ▸</button></td>
       </tr>`;
