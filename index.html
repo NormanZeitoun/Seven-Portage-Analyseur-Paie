@@ -726,6 +726,14 @@ select {
 
   <!-- CLIENTS -->
   <div id="cl-sec-clients" class="cl-section active">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1rem">
+      <span style="font-size:12px;color:var(--text2)">Filtrer par commercial :</span>
+      <select id="cl-comm-filter" onchange="clSetCommFilter(this.value)"
+        style="padding:5px 10px;border:0.5px solid var(--border2);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);min-width:160px">
+        <option value="">Tous les commerciaux</option>
+      </select>
+      <span id="cl-comm-filter-info" style="font-size:11px;color:var(--text2)"></span>
+    </div>
     <div class="cl-grid2" style="margin-bottom:1rem">
       <div class="cl-card" style="margin-bottom:0">
         <div class="cl-card-title">CA par client</div>
@@ -8288,6 +8296,9 @@ function clTab(name, btn) {
 
 var _clCharts = window._clCharts || {};
 window._clCharts = _clCharts;
+// ── Filtre commercial (sous-onglet Clients uniquement) ──
+window._clCommFilter = window._clCommFilter || '';
+function clSetCommFilter(v){ window._clCommFilter = (v||'').trim(); renderClient(); }
 function renderClient() {
   const {yd1:yd1raw, yd2:yd2raw, year, year2} = getClientYearData();
   const year1 = year;
@@ -8317,8 +8328,10 @@ function renderClient() {
   // (déclenché par clTab avec setTimeout — pas ici pour éviter les doubles appels)
 
   // ── Agrégation helper ──
-  function aggBy(yd, field) {
+  function aggBy(yd, field, commFilter) {
     const map = {};
+    const cf = (commFilter||'').trim().toLowerCase();
+    const matchComm = c => !cf || ((c||'').trim().toLowerCase() === cf);
     // Dernier mois disponible : on cherche le MAX sur (year + month) concaténés,
     // pas juste le dernier élément du tableau (qui n'est pas garanti trié dans tous les modes).
     let lastMoisKey = '';
@@ -8334,6 +8347,7 @@ function renderClient() {
       d.results.filter(r => {
         if(!(r.facture>0)) return false;
         if(!r[field]) return false;
+        if(!matchComm(r.commercial)) return false;
         if(r.type === 'matched') return true;
         if(r.type === 'orphan_crm' && (r.paieDifferee || (r.facture||0) > 0)) return true;
         return false;
@@ -8354,6 +8368,7 @@ function renderClient() {
     if(typeof loadFacturesManuelles === 'function') {
       loadFacturesManuelles().forEach(f => {
         if(!yearsInScope.has(String(f.year))) return;
+        if(!matchComm(f.commercial)) return;
         const v = (f[field]||'').trim();
         if(!v) return; // sans valeur sur ce champ, on ne peut pas l'agréger
         const moisKey = f.year + '-' + ('0'+f.month).slice(-2);
@@ -8409,7 +8424,8 @@ function renderClient() {
     return { comms:[...comms].sort(), months, data };
   }
 
-  const clients1  = aggBy(yd1, 'client');
+  const clComm    = window._clCommFilter || '';
+  const clients1  = aggBy(yd1, 'client', clComm);
   const comms1    = aggBy(yd1, 'commercial');
   const metiers1raw = aggBy(yd1, 'metier');
   // Regroupement par secteur via le référentiel (classifySecteurMetier)
@@ -8426,8 +8442,20 @@ function renderClient() {
   Object.values(catMap).forEach(c => { c.margePct = c.ca>0?(c.marge/c.ca)*100:0; });
   const metiers1 = Object.values(catMap).sort((a,b)=>b.ca-a.ca);
   const charges1  = getCharges(yd1);
-  const clients2  = year2 ? aggBy(yd2, 'client') : [];
+  const clients2  = year2 ? aggBy(yd2, 'client', clComm) : [];
   const comms2    = year2 ? aggBy(yd2, 'commercial') : [];
+
+  // ── Peupler le filtre commercial (sans perdre la sélection) ──
+  (function(){
+    const sel = document.getElementById('cl-comm-filter');
+    if(!sel) return;
+    const names = [...new Set([...comms1, ...comms2].map(c=>c.label.trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
+    const cur = clComm;
+    sel.innerHTML = '<option value="">Tous les commerciaux</option>' +
+      names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}"${n.toLowerCase()===cur.toLowerCase()?' selected':''}>${n}</option>`).join('');
+    const info = document.getElementById('cl-comm-filter-info');
+    if(info) info.textContent = cur ? `→ ${clients1.length} client${clients1.length>1?'s':''} · ${Math.round(clients1.reduce((s,c)=>s+c.ca,0)).toLocaleString('fr-FR')} € CA` : '';
+  })();
   const cbm1      = commByMonth(yd1);
   const cbm2      = year2 ? commByMonth(yd2) : null;
 
@@ -8475,11 +8503,12 @@ function renderClient() {
   );
 
   // Alerte concentration
-  const pct1 = totalCA>0?Math.round(clients1[0]?.ca/totalCA*100):0;
+  const pct1 = (totalCA>0 && clients1[0])?Math.round(clients1[0].ca/totalCA*100):0;
   const top3pct = totalCA>0?Math.round(top3.reduce((s,c)=>s+c.ca,0)/totalCA*100):0;
   const rEl = document.getElementById('cl-risque-alert');
   if(pct1>40) rEl.innerHTML=`<div class="cl-badge cl-bred">⚠ ${clients1[0]?.label} représente ${pct1}% du CA — risque élevé</div>`;
   else if(top3pct>70) rEl.innerHTML=`<div class="cl-badge cl-bamb">⚠ Top 3 clients = ${top3pct}% du CA</div>`;
+  else if(!clients1.length) rEl.innerHTML=`<div class="cl-badge cl-bgry">Aucun client pour ce commercial sur la période</div>`;
   else rEl.innerHTML=`<div class="cl-badge cl-bgrn">✓ CA bien réparti — concentration acceptable</div>`;
 
   // Table clients
